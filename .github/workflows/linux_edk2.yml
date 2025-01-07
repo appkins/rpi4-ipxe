@@ -90,8 +90,46 @@ jobs:
         mkdir overlays
         mv *.dtbo overlays
 
+    - name: Compile iPXE
+      run: |
+        set -euxo pipefail
+        IPXE_VERSION='301644ab480ab9787c617e1a94e19ca5c2774072' # 2024-08-29T22:36:00Z
+        IPXE_PATH="$PWD/ipxe"
+        [ -d "$IPXE_PATH" ] || git clone https://github.com/ipxe/ipxe.git "$IPXE_PATH"
+        pushd "$IPXE_PATH"
+        git fetch origin master
+        git checkout $IPXE_VERSION
+        cat >src/config/local/general.h <<'EOF'
+        #define CERT_CMD                /* Certificate management commands */
+        #define DOWNLOAD_PROTO_HTTPS    /* Secure Hypertext Transfer Protocol */
+        #define DOWNLOAD_PROTO_TFTP     /* Trivial File Transfer Protocol */
+        #define IMAGE_TRUST_CMD         /* Image trust management commands */
+        #define NEIGHBOUR_CMD           /* Neighbour management commands */
+        #define NSLOOKUP_CMD            /* Name resolution command */
+        #define NTP_CMD                 /* Network time protocol commands */
+        #define PARAM_CMD               /* Form parameter commands */
+        #define PING_CMD                /* Ping command */
+        #define POWEROFF_CMD            /* Power off command */
+        #undef SANBOOT_PROTO_AOE        /* AoE protocol */
+        EOF
+        cat >src/config/local/console.h <<'EOF'
+        // NB this has no effect in EFI mode. you must set the layout in the
+        //    efi firmware instead.
+        //#undef KEYBOARD_MAP
+        //#define KEYBOARD_MAP pt
+        EOF
+        export CROSS_COMPILE=aarch64-linux-gnu-
+        NUM_CPUS=$($(getconf _NPROCESSORS_ONLN) + 2)
+        # NB sometimes, for some reason, when we change the settings at
+        #    src/config/local/*.h they will not always work unless we
+        #    build from scratch.
+        rm -rf src/bin*
+        time make -j "${NUM_CPUS}" -C src bin-arm64-efi/ipxe.efi
+        popd
+        install "$IPXE_PATH/src/bin-arm64-efi/ipxe.efi" efi/boot/bootaa64.efi
+
     - name: Create UEFI firmware archive
-      run: zip -r RPi4_UEFI_Firmware_${{ steps.set_version.outputs.version }}.zip RPI_EFI.fd *.dtb config.txt fixup4.dat start4.elf overlays Readme.md firmware
+      run: zip -r RPi4_UEFI_Firmware_${{ steps.set_version.outputs.version }}.zip RPI_EFI.fd *.dtb config.txt fixup4.dat start4.elf overlays Readme.md firmware efi
 
     - name: Display SHA-256
       run: sha256sum Build/RPi4/*/FV/RPI_EFI.fd RPi4_UEFI_Firmware_${{ steps.set_version.outputs.version }}.zip
