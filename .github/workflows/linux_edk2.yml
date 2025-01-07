@@ -97,6 +97,7 @@ jobs:
           #
           # iPxe module
           #
+          MdeModulePkg/Universal/FvSimpleFileSystemDxe/FvSimpleFileSystemDxe.inf
           Custom/iPxe/iPxe.inf
 
         EOF

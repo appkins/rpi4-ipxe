@@ -7,6 +7,3 @@
 
 [Binaries.AARCH64]
   AArch64/ipxe.efi|*
-
-[Components.common]
-  MdeModulePkg/Universal/FvSimpleFileSystemDxe/FvSimpleFileSystemDxe.inf
