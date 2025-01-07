@@ -90,7 +90,7 @@ jobs:
         EOF
         export CROSS_COMPILE=${{ env.GCC5_AARCH64_PREFIX }}
         make -C ipxe/src bin-arm64-efi/ipxe.efi
-        mkdir -p ./edk2/Custom/iPxe && mkdir -p efi/boot
+        mkdir -p ./edk2/Custom/iPxe/AArch64 && mkdir -p efi/boot
         install "ipxe/src/bin-arm64-efi/ipxe.efi" edk2/Custom/iPxe/AArch64/ipxe.efi
         cp "drivers/ipxe.inf" edk2/Custom/iPxe/iPxe.inf
         cat >>edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc <<'EOF'
