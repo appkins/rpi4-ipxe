@@ -100,9 +100,9 @@ jobs:
 
     - name: Set up iPXE in UEFI firmware
       run: |
-        mkdir -p ./edk2-non-osi/Drivers/iPxe/iPxeBinPkg/AArch64 && mkdir -p efi/boot
-        install "ipxe/src/bin-arm64-efi/ipxe.efi" edk2-non-osi/Drivers/iPxe/iPxeBinPkg/AArch64/ipxe.efi
-        cp "drivers/ipxe.inf" edk2-non-osi/Drivers/iPxe/iPxeBinPkg/iPxe.inf
+        mkdir -p ./edk2-platforms/Drivers/iPxe/iPxeBinPkg/AArch64 && mkdir -p efi/boot
+        install "ipxe/src/bin-arm64-efi/ipxe.efi" edk2-platforms/Drivers/iPxe/iPxeBinPkg/AArch64/ipxe.efi
+        cp "drivers/ipxe.inf" edk2-platforms/Drivers/iPxe/iPxeBinPkg/iPxe.inf
         sed -i '605i\  Drivers/iPxe/iPxeBinPkg/iPxe.inf' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
         sed -i '248i\  INF Drivers/iPxe/iPxeBinPkg/iPxe.inf' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
         sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|0#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|1#g' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
