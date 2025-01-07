@@ -40,6 +40,11 @@ jobs:
         sudo apt-get update
         sudo apt-get install acpica-tools gcc-aarch64-linux-gnu build-essential dos2unix
 
+    - name: Check out EDK2 repositories
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
     - name: Set up Git environment
       run: |
         git config --global user.email "action@github.com"
@@ -63,25 +68,25 @@ jobs:
         #define POWEROFF_CMD            /* Power off command */
         #undef SANBOOT_PROTO_AOE        /* AoE protocol */
         EOF
+        cat >ipxe/src/config/local/console.h <<'EOF'
+        // NB this has no effect in EFI mode. you must set the layout in the
+        //    efi firmware instead.
+        //#undef KEYBOARD_MAP
+        //#define KEYBOARD_MAP pt
+        EOF
         export CROSS_COMPILE=aarch64-linux-gnu-
         make -C ipxe/src bin-arm64-efi/ipxe.efi
         mkdir -p efi/boot
         mkdir -p ./edk2/Custom/iPxe
         install "ipxe/src/bin-arm64-efi/ipxe.efi" edk2/Custom/iPxe/ipxe.efi
         install "drivers/ipxe.inf" edk2/Custom/iPxe/iPxe.inf
-        cat <<EOF >>edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-          
+        cat >>edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc <<'EOF'
           #
           # iPxe module
           #
           Custom/iPxe/iPxe.inf
 
         EOF
-
-    - name: Check out EDK2 repositories
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
 
     - name: Set up EDK2
       run: make -C edk2/BaseTools
