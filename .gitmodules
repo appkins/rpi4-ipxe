@@ -10,3 +10,7 @@
 	path = edk2-non-osi
 	url = https://github.com/tianocore/edk2-non-osi.git
 	branch = master
+[submodule "ipxe"]
+	path = ipxe
+	url = https://github.com/ipxe/ipxe.git
+	branch = master
