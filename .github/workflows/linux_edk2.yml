@@ -90,13 +90,6 @@ jobs:
         EOF
         export CROSS_COMPILE=${{ env.GCC5_AARCH64_PREFIX }}
         make -C ipxe/src bin-arm64-efi/ipxe.efi
-        mkdir -p ./edk2/Custom/iPxe/AArch64 && mkdir -p efi/boot
-        install "ipxe/src/bin-arm64-efi/ipxe.efi" edk2-non-osi/Drivers/iPxe/iPxeBinPkg/AArch64/ipxe.efi
-        cp "drivers/ipxe.inf" edk2-non-osi/Drivers/iPxe/iPxeBinPkg/iPxe.inf
-
-        sed -i '248i\  INF Drivers/iPxe/iPxeBinPkg/iPxe.inf' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
-        sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|0#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|1#g' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-        sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|1#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|0#g' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 
     - name: Upload iPXE artifacts
       uses: actions/upload-artifact@v4
@@ -104,6 +97,16 @@ jobs:
         name: iPXE ${{ inputs.version || steps.set_version.outputs.version }} Artifacts
         path: |
           ipxe/src/bin-arm64-efi/ipxe.efi
+
+    - name: Set up iPXE in UEFI firmware
+      run: |
+        mkdir -p ./edk2-non-osi/Drivers/iPxe/iPxeBinPkg/AArch64 && mkdir -p efi/boot
+        install "ipxe/src/bin-arm64-efi/ipxe.efi" edk2-non-osi/Drivers/iPxe/iPxeBinPkg/AArch64/ipxe.efi
+        cp "drivers/ipxe.inf" edk2-non-osi/Drivers/iPxe/iPxeBinPkg/iPxe.inf
+
+        sed -i '248i\  INF Drivers/iPxe/iPxeBinPkg/iPxe.inf' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
+        sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|0#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|1#g' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+        sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|1#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|0#g' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 
     - name: Set up EDK2
       run: make -C edk2/BaseTools
@@ -170,4 +173,6 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         body: Raspberry Pi 4 UEFI Firmware ${{ inputs.version || steps.set_version.outputs.version }}
         tag_name: ${{ inputs.version || steps.set_version.outputs.version }}
-        files: RPi4_UEFI_Firmware_${{ inputs.version || steps.set_version.outputs.version }}.zip
+        files: |
+          RPi4_UEFI_Firmware_${{ inputs.version || steps.set_version.outputs.version }}.zip
+          ipxe/src/bin-arm64-efi/ipxe.efi
