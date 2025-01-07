@@ -92,7 +92,7 @@ jobs:
 
     - name: Compile iPXE
       run: |
-        set -euxo pipefail
+        mkdir -p ipxe/src/config/local
         cat >ipxe/src/config/local/general.h <<'EOF'
         #define CERT_CMD                /* Certificate management commands */
         #define DOWNLOAD_PROTO_HTTPS    /* Secure Hypertext Transfer Protocol */
@@ -105,12 +105,6 @@ jobs:
         #define PING_CMD                /* Ping command */
         #define POWEROFF_CMD            /* Power off command */
         #undef SANBOOT_PROTO_AOE        /* AoE protocol */
-        EOF
-        cat >ipxe/src/config/local/console.h <<'EOF'
-        // NB this has no effect in EFI mode. you must set the layout in the
-        //    efi firmware instead.
-        //#undef KEYBOARD_MAP
-        //#define KEYBOARD_MAP pt
         EOF
         export CROSS_COMPILE=aarch64-linux-gnu-
         make -C ipxe/src bin-arm64-efi/ipxe.efi
