@@ -102,6 +102,9 @@ jobs:
 
         EOF
 
+        sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|0#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|1#g' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+        sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|1#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|0#g' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+
     - name: Upload iPXE artifacts
       uses: actions/upload-artifact@v4
       with:
