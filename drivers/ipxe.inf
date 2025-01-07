@@ -1,0 +1,12 @@
+[Defines]
+  INF_VERSION                    = 1.27
+  BASE_NAME                      = ipxe
+  FILE_GUID                      = 5A784493-52B2-4AF9-9E6C-97C2439D6524
+  MODULE_TYPE                    = UEFI_DRIVER
+  VERSION_STRING                 = 1.0
+
+[Binaries.AARCH64]
+  AArch64/ipxe.efi|*
+
+[Components.AARCH64]
+  MdeModulePkg/Universal/FvSimpleFileSystemDxe/FvSimpleFileSystemDxe.inf
