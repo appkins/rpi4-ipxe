@@ -6,4 +6,4 @@
   VERSION_STRING                 = 1.0
 
 [Binaries.AARCH64]
-  AArch64/ipxe.efi|*
+  PE32|AArch64/ipxe.efi|*
