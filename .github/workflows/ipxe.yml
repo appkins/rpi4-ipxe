@@ -1,0 +1,113 @@
+# Copyright (c) 2021-2024, Pete Batard <pete@akeo.ie>
+# SPDX-License-Identifier: BSD-3-Clause
+
+name: iPXE Binaries
+
+on:
+  push:
+    tags:
+    - '*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build'
+        required: false
+
+env:
+  PROJECT_URL: https://github.com/pftf/RPi4
+  RPI_FIRMWARE_URL: https://github.com/raspberrypi/firmware/
+  ARCH: AARCH64
+  COMPILER: GCC5
+  GCC5_AARCH64_PREFIX: aarch64-linux-gnu-
+  # The following should usually be set to 'master' but, in case
+  # of a regression, a specific SHA-1 can be specified.
+  START_ELF_VERSION: master
+  # Set to pre HDMI/Audio changes per https://github.com/pftf/RPi4/issues/252
+  DTB_VERSION: b49983637106e5fb33e2ae60d8c15a53187541e4
+  DTBO_VERSION: master
+
+jobs:
+  iPXE-Build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Set version
+      id: set_version
+      run: echo "version=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
+
+    - name: Check out EDK2 repositories
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Cache permissions
+      run: |
+        sudo chown $(id -un) /var/cache/apt/archives
+
+    - name: Cache packages
+      uses: actions/cache/restore@v4
+      with:
+        path: /var/cache/apt/archives/*.deb
+        key: apt-cache-${{ github.run_id }}-${{ github.run_attempt }}
+
+    - name: Install packages
+      run: |
+        sudo apt update
+        sudo apt install -y -o Acquire::Retries=50 \
+                          acpica-tools mtools syslinux isolinux gcc-aarch64-linux-gnu
+
+    - name: Set up Git environment
+      run: |
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
+        git config --global push.default simple
+        git config --global core.autocrlf false
+
+    - name: Compile iPXE
+      run: |
+        mkdir -p ipxe/src/config/local
+        mkdir -p ipxe/src/config/local
+        touch ipxe/src/config/local/{umalloc,ioapi,colour,nap,time,sanboot,fault,serial,reboot,branding,crypto,dhcp,isa,sideband,entropy,settings,fdt,timer,usb}.h
+        cat >ipxe/src/config/local/general.h <<'EOF'
+        #define CERT_CMD                /* Certificate management commands */
+        #define DOWNLOAD_PROTO_HTTPS    /* Secure Hypertext Transfer Protocol */
+        #define DOWNLOAD_PROTO_TFTP     /* Trivial File Transfer Protocol */
+        #define IMAGE_TRUST_CMD         /* Image trust management commands */
+        #define NEIGHBOUR_CMD           /* Neighbour management commands */
+        #define NSLOOKUP_CMD            /* Name resolution command */
+        #define NTP_CMD                 /* Network time protocol commands */
+        #define PARAM_CMD               /* Form parameter commands */
+        #define PING_CMD                /* Ping command */
+        #define POWEROFF_CMD            /* Power off command */
+        #undef SANBOOT_PROTO_AOE        /* AoE protocol */
+        EOF
+        cat >ipxe/src/config/local/console.h <<'EOF'
+        // NB this has no effect in EFI mode. you must set the layout in the
+        //    efi firmware instead.
+        //#undef KEYBOARD_MAP
+        //#define KEYBOARD_MAP pt
+        EOF
+        export CROSS_COMPILE=${{ env.GCC5_AARCH64_PREFIX }}
+        make -C ipxe/src bin-arm64-efi/ipxe.efi bin-arm64-efi/ipxe.lkrn
+
+    - name: Upload iPXE artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: iPXE ${{ inputs.version || steps.set_version.outputs.version }} Artifacts
+        path: |
+          ipxe/src/bin-arm64-efi/ipxe.efi
+          ipxe/src/bin-arm64-efi/ipxe.lkrn
+
+    - name: Create release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        draft: false
+        prerelease: false
+        token: ${{ secrets.GITHUB_TOKEN }}
+        body: Raspberry Pi 4 UEFI Firmware ${{ inputs.version || steps.set_version.outputs.version }}
+        tag_name: ${{ inputs.version || steps.set_version.outputs.version }}
+        files: |
+          ipxe/src/bin-arm64-efi/ipxe.efi
+          ipxe/src/bin-arm64-efi/ipxe.lkrn
