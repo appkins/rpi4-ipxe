@@ -66,11 +66,10 @@ jobs:
 
     - name: Set up Redfish in UEFI firmware
       run: |
-        grep -qF -- "  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf" edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '605i\  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-        grep -qF -- "  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceBmcUsbNicLib/PlatformHostInterfaceBmcUsbNicLib.inf" edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '606i\  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceBmcUsbNicLib/PlatformHostInterfaceBmcUsbNicLib.inf' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+        grep -qF -- "  DEFINE REDFISH_ENABLE         = FALSE" edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '34i\  DEFINE REDFISH_ENABLE         = FALSE' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+        grep -qF -- "!include RedfishPkg/RedfishLibs.dsc.inc" edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '58\!include RedfishPkg/RedfishLibs.dsc.inc' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+        grep -qF -- "!include RedfishPkg/RedfishComponents.dsc.inc" edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '596\!include RedfishPkg/RedfishComponents.dsc.inc' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 
-        grep -qF -- "  INF MdeModulePkg/Bus/Usb/UsbNetwork/NetworkCommon/NetworkCommon.inf" "edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.fdf" || sed -i '248i\  INF MdeModulePkg/Bus/Usb/UsbNetwork/NetworkCommon/NetworkCommon.inf' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
-        grep -qF -- "  INF MdeModulePkg/Bus/Usb/UsbNetwork/UsbCdcEcm/UsbCdcEcm.inf" "edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.fdf" || sed -i '249i\  INF MdeModulePkg/Bus/Usb/UsbNetwork/UsbCdcEcm/UsbCdcEcm.inf' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
         grep -qF -- "!include RedfishPkg/Redfish.fdf.inc" "edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.fdf" || sed -i '250i\!include RedfishPkg/Redfish.fdf.inc' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
 
         sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|0#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|1#g' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
