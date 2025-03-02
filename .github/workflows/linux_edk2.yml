@@ -55,7 +55,7 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y -o Acquire::Retries=50 \
-                          acpica-tools mtools syslinux isolinux gcc-aarch64-linux-gnu uuid-dev
+                          acpica-tools mtools syslinux isolinux gcc-aarch64-linux-gnu uuid-dev nasm
 
     - name: Set up Git environment
       run: |
@@ -66,12 +66,6 @@ jobs:
 
     - name: Set up Redfish in UEFI firmware
       run: |
-        grep -qF -- "  DEFINE REDFISH_ENABLE         = FALSE" edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '34a \  DEFINE REDFISH_ENABLE         = FALSE' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-        grep -qF -- "!include RedfishPkg/RedfishLibs.dsc.inc" edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '58a \!include RedfishPkg/RedfishLibs.dsc.inc' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-        grep -qF -- "!include RedfishPkg/RedfishComponents.dsc.inc" edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '596a \!include RedfishPkg/RedfishComponents.dsc.inc' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-
-        grep -qF -- "!include RedfishPkg/Redfish.fdf.inc" "edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.fdf" || sed -i '250a \!include RedfishPkg/Redfish.fdf.inc' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
-
         sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|0#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|1#g' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
         sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|1#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|0#g' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 
@@ -94,14 +88,14 @@ jobs:
     - name: Build UEFI firmware
       run: |
         export WORKSPACE=$PWD
-        export PACKAGES_PATH=$WORKSPACE/edk2:$WORKSPACE/edk2-platforms:$WORKSPACE/edk2-non-osi:$WORKSPACE
+        export PACKAGES_PATH=$WORKSPACE/edk2-redfish-client:$WORKSPACE/edk2:$WORKSPACE/edk2-platforms:$WORKSPACE/edk2-non-osi:$WORKSPACE
         export BUILD_FLAGS="-D NETWORK_ALLOW_HTTP_CONNECTIONS=TRUE -D REDFISH_ENABLE=TRUE -D SECURE_BOOT_ENABLE=TRUE -D INCLUDE_TFTP_COMMAND=TRUE -D NETWORK_ISCSI_ENABLE=TRUE -D SMC_PCI_SUPPORT=1"
         export TLS_DISABLE_FLAGS="-D NETWORK_TLS_ENABLE=FALSE -D NETWORK_ALLOW_HTTP_CONNECTIONS=TRUE"
         export DEFAULT_KEYS="-D DEFAULT_KEYS=TRUE -D PK_DEFAULT_FILE=$WORKSPACE/keys/pk.cer -D KEK_DEFAULT_FILE1=$WORKSPACE/keys/ms_kek1.cer -D KEK_DEFAULT_FILE2=$WORKSPACE/keys/ms_kek2.cer -D DB_DEFAULT_FILE1=$WORKSPACE/keys/ms_db1.cer -D DB_DEFAULT_FILE2=$WORKSPACE/keys/ms_db2.cer -D DB_DEFAULT_FILE3=$WORKSPACE/keys/ms_db3.cer -D DB_DEFAULT_FILE4=$WORKSPACE/keys/ms_db4.cer -D DBX_DEFAULT_FILE1=$WORKSPACE/keys/arm64_dbx.bin"
         # EDK2's 'build' command doesn't play nice with spaces in environmnent variables, so we can't move the PCDs there...
         source edk2/edksetup.sh
         for BUILD_TYPE in DEBUG RELEASE; do
-          build -a ${{ env.ARCH }} -t ${{ env.COMPILER }} -b $BUILD_TYPE -p edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor=L"${{ env.PROJECT_URL }}" --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString=L"UEFI Firmware ${{ inputs.version || steps.set_version.outputs.version }}" ${BUILD_FLAGS} ${DEFAULT_KEYS} ${TLS_DISABLE_FLAGS}
+          build -a ${{ env.ARCH }} -t ${{ env.COMPILER }} -b $BUILD_TYPE -p edk2-redfish-client/RedfishClientPkg/RedfishClientPkg.dsc -p edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor=L"${{ env.PROJECT_URL }}" --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString=L"UEFI Firmware ${{ inputs.version || steps.set_version.outputs.version }}" ${BUILD_FLAGS} ${DEFAULT_KEYS} ${TLS_DISABLE_FLAGS}
           TLS_DISABLE_FLAGS=""
         done
         cp Build/RPi4/RELEASE_${{ env.COMPILER }}/FV/RPI_EFI.fd .
