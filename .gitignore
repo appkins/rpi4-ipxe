@@ -1,6 +1,12 @@
-.vscode
+*.pyc
+*.bak
+/Build
+/Conf
+/.vs
+/.vscode
+*_extdep/
+*.pyore
 hack
-Build
 keys
 boot
 .DS_Store

@@ -55,7 +55,7 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y -o Acquire::Retries=50 \
-                          acpica-tools mtools syslinux isolinux gcc-aarch64-linux-gnu uuid-dev nasm
+                          acpica-tools mtools syslinux isolinux gcc-aarch64-linux-gnu uuid-dev
 
     - name: Set up Git environment
       run: |
@@ -66,6 +66,12 @@ jobs:
 
     - name: Set up Redfish in UEFI firmware
       run: |
+        grep -qF -- "  DEFINE REDFISH_ENABLE         = FALSE" edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '34a \  DEFINE REDFISH_ENABLE         = FALSE' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+        grep -qF -- "!include RedfishPkg/RedfishLibs.dsc.inc" edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '58a \!include RedfishPkg/RedfishLibs.dsc.inc' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+        grep -qF -- "!include RedfishPkg/RedfishComponents.dsc.inc" edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '596a \!include RedfishPkg/RedfishComponents.dsc.inc' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+
+        grep -qF -- "!include RedfishPkg/Redfish.fdf.inc" "edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.fdf" || sed -i '250a \!include RedfishPkg/Redfish.fdf.inc' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
+
         sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|0#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|1#g' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
         sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|1#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|0#g' edk2-platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 

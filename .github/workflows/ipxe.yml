@@ -55,7 +55,7 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y -o Acquire::Retries=50 \
-                          acpica-tools mtools syslinux isolinux gcc-aarch64-linux-gnu
+                          acpica-tools mtools syslinux isolinux gcc-aarch64-linux-gnu uuid-dev
 
     - name: Set up Git environment
       run: |

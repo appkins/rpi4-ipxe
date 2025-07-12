@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "rpi4-ipxe"
+version = "0.1.0"
+description = "Builds the EDK2 Firmware for Raspberry Pi"
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+package-mode = false  # This disables package installation
+
+[tool.poetry.dependencies]
+python = ">=3.12,<3.13"
+edk2-pytool-library = ">=0.9.5"
+edk2-pytool-extensions = ">=0.11.2"
+regex = "*"
+pyyaml = "*"
+
+[tool.poetry.scripts]
+stuart_setup = "edk2toolext.invocables.edk2_setup:main"
+stuart_update = "edk2toolext.invocables.edk2_update:main"
+stuart_build = "edk2toolext.invocables.edk2_platform_build:main"
+stuart_ci_setup = "edk2toolext.invocables.edk2_ci_setup:main"
+stuart_pr_eval = "edk2toolext.invocables.edk2_pr_eval:main"
+stuart_ci_build = "edk2toolext.invocables.edk2_ci_build:main"
+stuart_parse = "edk2toolext.invocables.edk2_parse:main"
+stuart_report = "edk2toolext.edk2_report:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

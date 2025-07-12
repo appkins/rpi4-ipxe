@@ -1,0 +1,7 @@
+##
+# Download the Rpi 3b+ device tree from github
+#
+# Copyright (c) 2019, Microsoft Corporation
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+{"scope": "raspberrypi", "type": "web", "name": "bcm2710_rpi_3b_plus_devicetree", "source": "https://github.com/raspberrypi/firmware/raw/a16470ad47c0ad66d5c98d98e08e49cd148c8fc0/boot/bcm2710-rpi-3-b-plus.dtb", "version": "a16470ad47c0ad66d5c98d98e08e49cd148c8fc0", "internal_path": "bcm2710-rpi-3-b-plus.dtb", "sha256": "253a2e8765aaec5bce6b2ab4e4dbd16107897cc24bb3e248ab5206c09a42cf04", "flags": ["set_build_var"], "var_name": "BLD_*_BCM2710_3BP_DT"}

@@ -1,0 +1,4 @@
+##
+# Download the Rpi 4b device tree from github
+##
+{"scope": "raspberrypi", "type": "web", "name": "bcm2711_rpi_4_b_devicetree", "source": "https://github.com/raspberrypi/firmware/raw/f49a3960223f20ea0b2e30646f65be67bafe30dc/boot/bcm2711-rpi-4-b.dtb", "version": "a16470ad47c0ad66d5c98d98e08e49cd148c8fc0", "internal_path": "bcm2711-rpi-4-b.dtb", "sha256": "4bc9dd6182025add23a750b18ff748e46d4e939434530e8057c6bfa1ce6f1c16", "flags": ["set_build_var"], "var_name": "BLD_*_BCM2711_4BP_DT"}
