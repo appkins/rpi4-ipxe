@@ -228,9 +228,9 @@ $(FIRMWARE_FILE): setup-edk2 setup-redfish $(KEY_FILES)
 		$(BUILD_FLAGS) $(DEFAULT_KEYS) $(TLS_DISABLE_FLAGS)
 
 # Copy firmware to root directory
-$(ARCHIVE_DIR)/armstub8.bin: $(FIRMWARE_FILE)
+$(ARCHIVE_DIR)/armstub8-gic.bin: $(FIRMWARE_FILE)
 	@echo "Copying firmware to root directory..."
-	cp $(FIRMWARE_FILE) $(ARCHIVE_DIR)/armstub8.bin
+	cp $(FIRMWARE_FILE) $(ARCHIVE_DIR)/armstub8-gic.bin
 
 $(BRCM_DIR):
 	mkdir -p $@
@@ -289,10 +289,10 @@ $(ARCHIVE_DIR)/Readme.md:
 	cp Readme.md $(ARCHIVE_DIR)/Readme.md
 
 # Create UEFI firmware archive
-$(ARCHIVE_FILE): $(ARCHIVE_DIR) $(ARCHIVE_DIR)/armstub8.bin $(RPI_FILES) $(OVERLAY_FILES) $(ARCHIVE_DIR)/config.txt $(ARCHIVE_DIR)/Readme.md
+$(ARCHIVE_FILE): $(ARCHIVE_DIR) $(ARCHIVE_DIR)/armstub8-gic.bin $(RPI_FILES) $(OVERLAY_FILES) $(ARCHIVE_DIR)/config.txt $(ARCHIVE_DIR)/Readme.md
 	@echo "Creating UEFI firmware archive..."
 	cd $(ARCHIVE_DIR) && \
-	zip -r ../$@ armstub8.bin $(notdir $(RPI_FILES)) config.txt overlays Readme.md firmware efi
+	zip -r ../$@ armstub8-gic.bin $(notdir $(RPI_FILES)) config.txt overlays Readme.md firmware efi
 
 # Display SHA-256 checksums
 .PHONY: checksums
@@ -302,7 +302,7 @@ checksums: $(FIRMWARE_FILE) $(ARCHIVE_FILE)
 
 # Build everything
 .PHONY: build
-build: check-deps $(ARCHIVE_DIR)/armstub8.bin download-rpi-files setup-brcm $(ARCHIVE_FILE) checksums
+build: check-deps $(ARCHIVE_DIR)/armstub8-gic.bin download-rpi-files setup-brcm $(ARCHIVE_FILE) checksums
 
 # Clean platforms submodule to remote state
 .PHONY: clean-platforms

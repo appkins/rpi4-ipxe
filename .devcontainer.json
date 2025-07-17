@@ -1,6 +1,0 @@
-{
-  "image": "ghcr.io/tianocore/containers/ubuntu-22-build:latest",
-  "postCreateCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && pip install --upgrade poetry && poetry install && poetry env activate",
-  "forwardPorts": [5000],
-  "privileged": true
-}
