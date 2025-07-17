@@ -6,7 +6,7 @@
 	path = platforms
 	url = https://github.com/tianocore/edk2-platforms.git
 	branch = master
-	head = 259a8851e54d5456a8ca2f631ab3aa4952d710fd
+	head = a3a8772eaf1cb3392154f52fd641e933a71e72ce
 [submodule "non-osi"]
 	path = non-osi
 	url = https://github.com/tianocore/edk2-non-osi.git
@@ -15,6 +15,7 @@
 [submodule "redfish-client"]
 	path = redfish-client
 	url = https://github.com/tianocore/edk2-redfish-client.git
+	head = 79e6d75f7d2899f14f3207c20daca94e215d8e74
 [submodule "ipxe"]
 	path = ipxe
 	url = https://github.com/ipxe/ipxe.git

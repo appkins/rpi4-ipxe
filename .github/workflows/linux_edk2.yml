@@ -77,8 +77,8 @@ jobs:
 
           grep -qF -- "!include RedfishClientPkg/RedfishClientDefines.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '56a \!include RedfishClientPkg/RedfishClientDefines.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 
-          grep -qF -- "!include RedfishPkg/RedfishLibs.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '58a \!include RedfishPkg/RedfishLibs.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-          grep -qF -- "  DEFINE REDFISH_ENABLE         = FALSE" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '34a \  DEFINE REDFISH_ENABLE         = FALSE' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+          grep -qF -- "!include RedfishPkg/RedfishLibs.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '57a \!include RedfishPkg/RedfishLibs.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+          grep -qF -- "  DEFINE REDFISH_ENABLE          = TRUE" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '34a \  DEFINE REDFISH_ENABLE          = TRUE' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 
 
           grep -qF -- "!include RedfishPkg/Redfish.fdf.inc" "platforms/Platform/RaspberryPi/RPi4/RPi4.fdf" || sed -i '321a \!include RedfishPkg/Redfish.fdf.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
