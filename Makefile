@@ -3,7 +3,6 @@
 
 # Makefile for RPi4 UEFI firmware build
 # Converted from .github/workflows/linux_edk2.yml
-
 # Configuration variables
 PROJECT_URL := https://github.com/pftf/RPi4
 RPI_FIRMWARE_URL := https://github.com/raspberrypi/firmware/
@@ -71,6 +70,8 @@ DEFAULT_KEYS := -D DEFAULT_KEYS=TRUE \
                 -D DB_DEFAULT_FILE4=$(WORKSPACE)/$(KEYS_DIR)/ms_db4.cer \
                 -D DBX_DEFAULT_FILE1=$(WORKSPACE)/$(KEYS_DIR)/arm64_dbx.bin
 
+RPI5_FIRMWARE := internal/Platform/RaspberryPi/RPi5/TrustedFirmware/bl31.bin
+
 # Default target
 .PHONY: all
 all: $(ARCHIVE_FILE)
@@ -136,6 +137,18 @@ setup-edk2:
 	@echo "Setting up EDK2 BaseTools..."
 	$(MAKE) -C edk2/BaseTools
 	@echo "EDK2 BaseTools setup complete"
+
+firmware/build/rpi5/release/bl31.bin:
+	@cd firmware && \
+	CROSS_COMPILE=$(GCC5_AARCH64_PREFIX) $(MAKE) PLAT=rpi5 RPI3_PRELOADED_DTB_BASE=0x1F0000 PRELOADED_BL33_BASE=0x20000 SUPPORT_VFP=1 SMC_PCI_SUPPORT=1 DEBUG=0 all
+
+$(RPI5_FIRMWARE): firmware/build/rpi5/release/bl31.bin
+	@echo "Creating $(RPI5_FIRMWARE)..."
+	@mkdir -p internal/Platform/RaspberryPi/RPi5/TrustedFirmware
+	@cp firmware/build/rpi5/release/bl31.bin $(RPI5_FIRMWARE)
+
+.PHONY: rpi5-firmware
+rpi5-firmware: $(RPI5_FIRMWARE)
 
 # Create keys directory
 $(KEYS_DIR):
