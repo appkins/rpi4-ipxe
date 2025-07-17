@@ -15,3 +15,8 @@
 [submodule "redfish-client"]
 	path = redfish-client
 	url = https://github.com/tianocore/edk2-redfish-client.git
+[submodule "ipxe"]
+	path = ipxe
+	url = https://github.com/ipxe/ipxe.git
+	branch = master
+	head = 8a8904aaddcc9497b2c3d110785b52e4d1dca336
