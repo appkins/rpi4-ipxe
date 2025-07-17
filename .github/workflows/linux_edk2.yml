@@ -64,54 +64,9 @@ jobs:
           git config --global push.default simple
           git config --global core.autocrlf false
 
-      - name: Set up Redfish in UEFI firmware
-        run: |
-          grep -qF -- "!include RedfishPkg/RedfishComponents.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '742a \!include RedfishPkg/RedfishComponents.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-
-          grep -qF -- "  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '177a \  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-          grep -qF -- "  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceBmcUsbNicLib/PlatformHostInterfaceBmcUsbNicLib.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '177a \  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceBmcUsbNicLib/PlatformHostInterfaceBmcUsbNicLib.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-
-          grep -qF -- "  RedfishPlatformWantedDeviceLib|RedfishPkg/Library/RedfishPlatformWantedDeviceLibNull/RedfishPlatformWantedDeviceLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '169a \  RedfishPlatformWantedDeviceLib|RedfishPkg/Library/RedfishPlatformWantedDeviceLibNull/RedfishPlatformWantedDeviceLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-          grep -qF -- "  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceLibNull/PlatformHostInterfaceLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '169a \  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceLibNull/PlatformHostInterfaceLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-          grep -qF -- "  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '169a \  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-
-          grep -qF -- "!include RedfishPkg/RedfishLibs.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '57a \!include RedfishPkg/RedfishLibs.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-          grep -qF -- "  DEFINE REDFISH_CLIENT_ALL_AUTOGENED = TRUE" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '34a \  DEFINE REDFISH_CLIENT_ALL_AUTOGENED = TRUE' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-          grep -qF -- "  DEFINE REDFISH_ENABLE          = TRUE" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '34a \  DEFINE REDFISH_ENABLE          = TRUE' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-
-          grep -qF -- "!include RedfishPkg/Redfish.fdf.inc" "platforms/Platform/RaspberryPi/RPi4/RPi4.fdf" || sed -i '321a \!include RedfishPkg/Redfish.fdf.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
-
-          sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|0#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|1#g' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-          sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|1#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|0#g' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-
-      - name: Set up EDK2
-        run: make -C edk2/BaseTools
-
-      - name: Set up Secure Boot default keys
-        run: |
-          mkdir keys
-          # We don't really need a usable PK, so just generate a public key for it and discard the private key
-          openssl req -new -x509 -newkey rsa:2048 -subj "/CN=Raspberry Pi Platform Key/" -keyout /dev/null -outform DER -out keys/pk.cer -days 7300 -nodes -sha256
-          curl -L https://go.microsoft.com/fwlink/?LinkId=321185 -o keys/ms_kek1.cer
-          curl -L https://go.microsoft.com/fwlink/?linkid=2239775 -o keys/ms_kek2.cer
-          curl -L https://go.microsoft.com/fwlink/?linkid=321192 -o keys/ms_db1.cer
-          curl -L https://go.microsoft.com/fwlink/?linkid=321194 -o keys/ms_db2.cer
-          curl -L https://go.microsoft.com/fwlink/?linkid=2239776 -o keys/ms_db3.cer
-          curl -L https://go.microsoft.com/fwlink/?linkid=2239872 -o keys/ms_db4.cer
-          curl -L https://uefi.org/sites/default/files/resources/dbxupdate_arm64.bin -o keys/arm64_dbx.bin
-
       - name: Build UEFI firmware
         run: |
-          export WORKSPACE=$PWD
-          export PACKAGES_PATH="$WORKSPACE/edk2:$WORKSPACE/platforms:$WORKSPACE/non-osi:$WORKSPACE:$WORKSPACE/redfish-client"
-          export BUILD_FLAGS="-D NETWORK_ALLOW_HTTP_CONNECTIONS=TRUE -D REDFISH_ENABLE=TRUE -D SECURE_BOOT_ENABLE=TRUE -D INCLUDE_TFTP_COMMAND=TRUE -D NETWORK_ISCSI_ENABLE=TRUE -D SMC_PCI_SUPPORT=1"
-          export TLS_DISABLE_FLAGS="-D NETWORK_TLS_ENABLE=FALSE -D NETWORK_ALLOW_HTTP_CONNECTIONS=TRUE"
-          export DEFAULT_KEYS="-D DEFAULT_KEYS=TRUE -D PK_DEFAULT_FILE=$WORKSPACE/keys/pk.cer -D KEK_DEFAULT_FILE1=$WORKSPACE/keys/ms_kek1.cer -D KEK_DEFAULT_FILE2=$WORKSPACE/keys/ms_kek2.cer -D DB_DEFAULT_FILE1=$WORKSPACE/keys/ms_db1.cer -D DB_DEFAULT_FILE2=$WORKSPACE/keys/ms_db2.cer -D DB_DEFAULT_FILE3=$WORKSPACE/keys/ms_db3.cer -D DB_DEFAULT_FILE4=$WORKSPACE/keys/ms_db4.cer -D DBX_DEFAULT_FILE1=$WORKSPACE/keys/arm64_dbx.bin"
-          # EDK2's 'build' command doesn't play nice with spaces in environmnent variables, so we can't move the PCDs there...
-          source edk2/edksetup.sh
-          build -a ${{ env.ARCH }} -t ${{ env.COMPILER }} -b RELEASE -p platforms/Platform/RaspberryPi/RPi4/RPi4.dsc --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor=L"${{ env.PROJECT_URL }}" --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString=L"UEFI Firmware ${{ inputs.version || steps.set_version.outputs.version }}" ${BUILD_FLAGS} ${DEFAULT_KEYS} ${TLS_DISABLE_FLAGS}
-          TLS_DISABLE_FLAGS=""
-          cp Build/RPi4/RELEASE_${{ env.COMPILER }}/FV/RPI_EFI.fd .
+          VERSION=${{ inputs.version || steps.set_version.outputs.version }} make
 
       - name: Upload UEFI firmware artifacts
         uses: actions/upload-artifact@v4
@@ -119,21 +74,6 @@ jobs:
           name: RPi4 UEFI Firmware ${{ inputs.version || steps.set_version.outputs.version }} Artifacts
           path: |
             Build/RPi4/**/FV/RPI_EFI.fd
-
-      - name: Download Raspberry Pi support files
-        run: |
-          curl -O -L ${{ env.RPI_FIRMWARE_URL }}/raw/${{ env.START_ELF_VERSION }}/boot/fixup4.dat
-          curl -O -L ${{ env.RPI_FIRMWARE_URL }}/raw/${{ env.START_ELF_VERSION }}/boot/start4.elf
-          curl -O -L ${{ env.RPI_FIRMWARE_URL }}/raw/${{ env.DTB_VERSION }}/boot/bcm2711-rpi-4-b.dtb
-          curl -O -L ${{ env.RPI_FIRMWARE_URL }}/raw/${{ env.DTB_VERSION }}/boot/bcm2711-rpi-cm4.dtb
-          curl -O -L ${{ env.RPI_FIRMWARE_URL }}/raw/${{ env.DTB_VERSION }}/boot/bcm2711-rpi-400.dtb
-          curl -O -L ${{ env.RPI_FIRMWARE_URL }}/raw/${{ env.DTBO_VERSION }}/boot/overlays/miniuart-bt.dtbo
-          curl -O -L ${{ env.RPI_FIRMWARE_URL }}/raw/${{ env.DTBO_VERSION }}/boot/overlays/upstream-pi4.dtbo
-          mkdir overlays
-          mv *.dtbo overlays
-
-      - name: Create UEFI firmware archive
-        run: zip -r RPi4_UEFI_Firmware_${{ inputs.version || steps.set_version.outputs.version }}.zip RPI_EFI.fd *.dtb config.txt fixup4.dat start4.elf overlays Readme.md firmware efi
 
       - name: Display SHA-256
         run: sha256sum Build/RPi4/*/FV/RPI_EFI.fd RPi4_UEFI_Firmware_${{ inputs.version || steps.set_version.outputs.version }}.zip
