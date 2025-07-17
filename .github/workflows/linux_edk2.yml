@@ -69,6 +69,7 @@ jobs:
           grep -qF -- "  DEFINE REDFISH_ENABLE         = FALSE" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '34a \  DEFINE REDFISH_ENABLE         = FALSE' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
           grep -qF -- "!include RedfishPkg/RedfishLibs.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '58a \!include RedfishPkg/RedfishLibs.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
           grep -qF -- "!include RedfishPkg/RedfishComponents.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '596a \!include RedfishPkg/RedfishComponents.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+          grep -qF -- "!include RedfishClientPkg/RedfishClientDefines.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '56a \!include RedfishClientPkg/RedfishClientDefines.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 
           grep -qF -- "!include RedfishPkg/Redfish.fdf.inc" "platforms/Platform/RaspberryPi/RPi4/RPi4.fdf" || sed -i '250a \!include RedfishPkg/Redfish.fdf.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
 
@@ -100,7 +101,7 @@ jobs:
           export DEFAULT_KEYS="-D DEFAULT_KEYS=TRUE -D PK_DEFAULT_FILE=$WORKSPACE/keys/pk.cer -D KEK_DEFAULT_FILE1=$WORKSPACE/keys/ms_kek1.cer -D KEK_DEFAULT_FILE2=$WORKSPACE/keys/ms_kek2.cer -D DB_DEFAULT_FILE1=$WORKSPACE/keys/ms_db1.cer -D DB_DEFAULT_FILE2=$WORKSPACE/keys/ms_db2.cer -D DB_DEFAULT_FILE3=$WORKSPACE/keys/ms_db3.cer -D DB_DEFAULT_FILE4=$WORKSPACE/keys/ms_db4.cer -D DBX_DEFAULT_FILE1=$WORKSPACE/keys/arm64_dbx.bin"
           # EDK2's 'build' command doesn't play nice with spaces in environmnent variables, so we can't move the PCDs there...
           source edk2/edksetup.sh
-          build -a ${{ env.ARCH }} -t ${{ env.COMPILER }} -b RELEASE -p redfish-client/RedfishClientPkg/RedfishClientPkg.dsc -p platforms/Platform/RaspberryPi/RPi4/RPi4.dsc --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor=L"${{ env.PROJECT_URL }}" --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString=L"UEFI Firmware ${{ inputs.version || steps.set_version.outputs.version }}" ${BUILD_FLAGS} ${DEFAULT_KEYS} ${TLS_DISABLE_FLAGS}
+          build -a ${{ env.ARCH }} -t ${{ env.COMPILER }} -b RELEASE -p platforms/Platform/RaspberryPi/RPi4/RPi4.dsc --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor=L"${{ env.PROJECT_URL }}" --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString=L"UEFI Firmware ${{ inputs.version || steps.set_version.outputs.version }}" ${BUILD_FLAGS} ${DEFAULT_KEYS} ${TLS_DISABLE_FLAGS}
           TLS_DISABLE_FLAGS=""
           cp Build/RPi4/RELEASE_${{ env.COMPILER }}/FV/RPI_EFI.fd .
 
