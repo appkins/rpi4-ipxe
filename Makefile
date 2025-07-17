@@ -26,7 +26,7 @@ FIRMWARE_DIR := $(BUILD_DIR)/FV
 
 # Generated files
 FIRMWARE_FILE := $(FIRMWARE_DIR)/RPI_EFI.fd
-FIRMWARE_COPY := RPI_EFI.fd
+FIRMWARE_COPY := armstub8.bin
 ARCHIVE_FILE := RPi4_UEFI_Firmware_$(VERSION).zip
 
 # Key files
@@ -185,7 +185,7 @@ $(FIRMWARE_FILE): setup-edk2 setup-redfish $(KEY_FILES)
 	export WORKSPACE=$(WORKSPACE) && \
 	export PACKAGES_PATH="$(PACKAGES_PATH)" && \
 	export GCC5_AARCH64_PREFIX="$(GCC5_AARCH64_PREFIX)" && \
-	source edk2/edksetup.sh && \
+	. edk2/edksetup.sh && \
 	build -a $(ARCH) -t $(COMPILER) -b RELEASE \
 		-p platforms/Platform/RaspberryPi/RPi4/RPi4.dsc \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor=L"$(PROJECT_URL)" \
