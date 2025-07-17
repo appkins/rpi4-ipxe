@@ -1,17 +1,16 @@
-# Copyright (c) 2021-2024, Pete Batard <pete@akeo.ie>
-# SPDX-License-Identifier: BSD-3-Clause
-
 # Makefile for RPi4 UEFI firmware build
-# Converted from .github/workflows/linux_edk2.yml
+
 # Configuration variables
 PROJECT_URL := https://github.com/pftf/RPi4
-RPI_FIRMWARE_URL := https://github.com/raspberrypi/firmware/
 ARCH := AARCH64
 COMPILER := GCC5
 GCC5_AARCH64_PREFIX ?= $(shell echo $${GCC5_AARCH64_PREFIX:-aarch64-elf-})
 START_ELF_VERSION := master
 DTB_VERSION := b49983637106e5fb33e2ae60d8c15a53187541e4
 DTBO_VERSION := master
+RPI_FIRMWARE_VERSION := master
+RPI_FIRMWARE_URL := https://github.com/raspberrypi/firmware/raw/$(RPI_FIRMWARE_VERSION)/boot
+BRCM_FIRMWARE_URL := https://archive.raspberrypi.org/debian/pool/main/f/firmware-nonfree/firmware-brcm80211_20240709-2~bpo12+1+rpt3_all.deb
 
 # Version can be overridden via environment variable
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "dev")
@@ -19,14 +18,17 @@ VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "dev")
 # Directories
 WORKSPACE := $(PWD)
 KEYS_DIR := keys
-OVERLAYS_DIR := overlays
-BUILD_DIR := Build/RPi4/RELEASE_$(COMPILER)
-FIRMWARE_DIR := $(BUILD_DIR)/FV
+BUILD_DIR := Build
+ARCHIVE_DIR := $(BUILD_DIR)/archive
+FIRMWARE_DIR := $(BUILD_DIR)/RPi4/RELEASE_$(COMPILER)/FV
+OVERLAYS_DIR := $(ARCHIVE_DIR)/overlays
+BRCM_DIR := $(ARCHIVE_DIR)/firmware
 
 # Generated files
-FIRMWARE_FILE := $(FIRMWARE_DIR)/RPI_EFI.fd
-FIRMWARE_COPY := armstub8.bin
 ARCHIVE_FILE := RPi4_UEFI_Firmware_$(VERSION).zip
+FIRMWARE_FILE := $(FIRMWARE_DIR)/RPI_EFI.fd
+BRCM_DEB_FILE := $(BRCM_DIR)/$(notdir $(BRCM_FIRMWARE_URL))
+BRCM_ARCHIVE := $(BRCM_DIR)/data.tar.xz
 
 # Key files
 KEY_FILES := $(KEYS_DIR)/pk.cer \
@@ -46,8 +48,17 @@ RPI_FILES := fixup4.dat \
              bcm2711-rpi-400.dtb
 
 # Overlay files
-OVERLAY_FILES := $(OVERLAYS_DIR)/miniuart-bt.dtbo \
-                 $(OVERLAYS_DIR)/upstream-pi4.dtbo
+OVERLAY_FILES := miniuart-bt.dtbo \
+                 upstream-pi4.dtbo
+
+# Broadcom firmware files
+BRCM_FILES := brcmfmac43455-sdio.bin \
+			  brcmfmac43455-sdio.clm_blob \
+			  brcmfmac43455-sdio.txt
+
+RPI_FILES := $(addprefix $(ARCHIVE_DIR)/, $(RPI_FILES))
+OVERLAY_FILES := $(addprefix $(OVERLAYS_DIR)/, $(OVERLAY_FILES))
+BRCM_FILES := $(addprefix $(BRCM_DIR)/, $(BRCM_FILES))
 
 # Build flags
 PACKAGES_PATH := $(WORKSPACE)/edk2:$(WORKSPACE)/platforms:$(WORKSPACE)/non-osi:$(WORKSPACE):$(WORKSPACE)/redfish-client
@@ -70,7 +81,8 @@ DEFAULT_KEYS := -D DEFAULT_KEYS=TRUE \
                 -D DB_DEFAULT_FILE4=$(WORKSPACE)/$(KEYS_DIR)/ms_db4.cer \
                 -D DBX_DEFAULT_FILE1=$(WORKSPACE)/$(KEYS_DIR)/arm64_dbx.bin
 
-RPI5_FIRMWARE := internal/Platform/RaspberryPi/RPi5/TrustedFirmware/bl31.bin
+TRUSTED_FIRMWARE_SRC := firmware/build/rpi5/release/bl31.bin
+TRUSTED_FIRMWARE_DST := internal/Platform/RaspberryPi/RPi5/TrustedFirmware/bl31.bin
 
 # Default target
 .PHONY: all
@@ -138,17 +150,26 @@ setup-edk2:
 	$(MAKE) -C edk2/BaseTools
 	@echo "EDK2 BaseTools setup complete"
 
-firmware/build/rpi5/release/bl31.bin:
+$(TRUSTED_FIRMWARE_SRC):
 	@cd firmware && \
-	CROSS_COMPILE=$(GCC5_AARCH64_PREFIX) $(MAKE) PLAT=rpi5 RPI3_PRELOADED_DTB_BASE=0x1F0000 PRELOADED_BL33_BASE=0x20000 SUPPORT_VFP=1 SMC_PCI_SUPPORT=1 DEBUG=0 all
+	CROSS_COMPILE=$(GCC5_AARCH64_PREFIX) \
+	$(MAKE) \
+		PLAT=rpi5 \
+		RPI3_PRELOADED_DTB_BASE=0x1F0000 \
+		PRELOADED_BL33_BASE=0x20000 \
+		SUPPORT_VFP=1 \
+		SMC_PCI_SUPPORT=1 \
+		DEBUG=0 \
+		all
 
-$(RPI5_FIRMWARE): firmware/build/rpi5/release/bl31.bin
-	@echo "Creating $(RPI5_FIRMWARE)..."
-	@mkdir -p internal/Platform/RaspberryPi/RPi5/TrustedFirmware
-	@cp firmware/build/rpi5/release/bl31.bin $(RPI5_FIRMWARE)
+$(TRUSTED_FIRMWARE_DST): $(TRUSTED_FIRMWARE_SRC)
+	@echo "Creating $@..."
+	@echo "Source $<"
+	@mkdir -p $(dir $@)
+	@cp $< $@
 
-.PHONY: rpi5-firmware
-rpi5-firmware: $(RPI5_FIRMWARE)
+.PHONY: setup-firmware
+setup-firmware: $(TRUSTED_FIRMWARE_DST)
 
 # Create keys directory
 $(KEYS_DIR):
@@ -206,51 +227,71 @@ $(FIRMWARE_FILE): setup-edk2 setup-redfish $(KEY_FILES)
 		$(BUILD_FLAGS) $(DEFAULT_KEYS) $(TLS_DISABLE_FLAGS)
 
 # Copy firmware to root directory
-$(FIRMWARE_COPY): $(FIRMWARE_FILE)
+$(ARCHIVE_DIR)/armstub8.bin: $(FIRMWARE_FILE)
 	@echo "Copying firmware to root directory..."
-	cp $(FIRMWARE_FILE) $(FIRMWARE_COPY)
+	cp $(FIRMWARE_FILE) $(ARCHIVE_DIR)/armstub8.bin
+
+$(BRCM_DIR):
+	mkdir -p $@
+
+$(BRCM_DEB_FILE): $(BRCM_DIR)
+	@echo "Downloading Broadcom firmware..."
+	curl -L $(BRCM_FIRMWARE_URL) -o $@
+
+$(BRCM_ARCHIVE): $(BRCM_DEB_FILE)
+	@echo "Extracting Broadcom firmware archive..."
+	cd $(BRCM_DIR) && \
+	ar -x $(notdir $<) data.tar.xz && \
+	rm $(notdir $<)
+
+$(BRCM_FILES): $(BRCM_ARCHIVE)
+	@echo "Extracting Broadcom firmware files..."
+	cd $(dir $@) && \
+	tar --strip-components 3 -zxvf $(notdir $<) lib/firmware
+
+.PHONY: clean-brcm
+clean-brcm:
+	@echo "Cleaning Broadcom firmware..."
+	rm $(BRCM_ARCHIVE)
+
+.PHONY: setup-brcm
+setup-brcm: $(BRCM_ARCHIVE)
+	@echo "Extracting Broadcom firmware files..."
+	cd $(BRCM_DIR) && \
+	tar --strip-components 3 -xvf $(notdir $<) lib/firmware
+	rm $(BRCM_ARCHIVE)
 
 # Download Raspberry Pi support files
-fixup4.dat:
-	@echo "Downloading fixup4.dat..."
-	curl -O -L $(RPI_FIRMWARE_URL)/raw/$(START_ELF_VERSION)/boot/fixup4.dat
-
-start4.elf:
-	@echo "Downloading start4.elf..."
-	curl -O -L $(RPI_FIRMWARE_URL)/raw/$(START_ELF_VERSION)/boot/start4.elf
-
-bcm2711-rpi-4-b.dtb:
-	@echo "Downloading bcm2711-rpi-4-b.dtb..."
-	curl -O -L $(RPI_FIRMWARE_URL)/raw/$(DTB_VERSION)/boot/bcm2711-rpi-4-b.dtb
-
-bcm2711-rpi-cm4.dtb:
-	@echo "Downloading bcm2711-rpi-cm4.dtb..."
-	curl -O -L $(RPI_FIRMWARE_URL)/raw/$(DTB_VERSION)/boot/bcm2711-rpi-cm4.dtb
-
-bcm2711-rpi-400.dtb:
-	@echo "Downloading bcm2711-rpi-400.dtb..."
-	curl -O -L $(RPI_FIRMWARE_URL)/raw/$(DTB_VERSION)/boot/bcm2711-rpi-400.dtb
+$(RPI_FILES): | $(ARCHIVE_DIR)
+	@echo "Downloading $(notdir $@)..."
+	curl -o $@ -L $(RPI_FIRMWARE_URL)/$(notdir $@)
 
 # Create overlays directory
 $(OVERLAYS_DIR):
-	mkdir -p $(OVERLAYS_DIR)
+	mkdir -p $@
 
-$(OVERLAYS_DIR)/miniuart-bt.dtbo: | $(OVERLAYS_DIR)
-	@echo "Downloading miniuart-bt.dtbo..."
-	curl -L $(RPI_FIRMWARE_URL)/raw/$(DTBO_VERSION)/boot/overlays/miniuart-bt.dtbo -o $@
-
-$(OVERLAYS_DIR)/upstream-pi4.dtbo: | $(OVERLAYS_DIR)
-	@echo "Downloading upstream-pi4.dtbo..."
-	curl -L $(RPI_FIRMWARE_URL)/raw/$(DTBO_VERSION)/boot/overlays/upstream-pi4.dtbo -o $@
+$(OVERLAY_FILES): $(OVERLAYS_DIR)
+	@echo "Downloading $(notdir $@)..."
+	curl -L $(RPI_FIRMWARE_URL)/overlays/$(notdir $@) -o $@
 
 # Download all Raspberry Pi support files
 .PHONY: download-rpi-files
 download-rpi-files: $(RPI_FILES) $(OVERLAY_FILES)
 
+$(ARCHIVE_DIR):
+	mkdir -p $(ARCHIVE_DIR)
+
+$(ARCHIVE_DIR)/config.txt:
+	cp config.txt $(ARCHIVE_DIR)/config.txt
+
+$(ARCHIVE_DIR)/Readme.md:
+	cp Readme.md $(ARCHIVE_DIR)/Readme.md
+
 # Create UEFI firmware archive
-$(ARCHIVE_FILE): $(FIRMWARE_COPY) $(RPI_FILES) $(OVERLAY_FILES) config.txt Readme.md
+$(ARCHIVE_FILE): $(ARCHIVE_DIR) $(ARCHIVE_DIR)/armstub8.bin $(RPI_FILES) $(OVERLAY_FILES) $(ARCHIVE_DIR)/config.txt $(ARCHIVE_DIR)/Readme.md
 	@echo "Creating UEFI firmware archive..."
-	zip -r $(ARCHIVE_FILE) $(FIRMWARE_COPY) $(RPI_FILES) config.txt $(OVERLAYS_DIR) Readme.md firmware efi
+	cd $(ARCHIVE_DIR) && \
+	zip -r ../$@ armstub8.bin $(notdir $(RPI_FILES)) config.txt overlays Readme.md firmware efi
 
 # Display SHA-256 checksums
 .PHONY: checksums
@@ -260,17 +301,18 @@ checksums: $(FIRMWARE_FILE) $(ARCHIVE_FILE)
 
 # Build everything
 .PHONY: build
-build: check-deps $(FIRMWARE_COPY) download-rpi-files $(ARCHIVE_FILE) checksums
+build: check-deps $(ARCHIVE_DIR)/armstub8.bin download-rpi-files setup-brcm $(ARCHIVE_FILE) checksums
 
 # Clean build artifacts
 .PHONY: clean
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf Build/
-	rm -f $(FIRMWARE_COPY)
+	rm -f $(ARCHIVE_DIR)/armstub8.bin
 	rm -f $(ARCHIVE_FILE)
 	rm -f $(RPI_FILES)
 	rm -rf $(OVERLAYS_DIR)
+	rm -rf firmware/build
 
 # Clean everything including keys
 .PHONY: distclean
@@ -282,17 +324,18 @@ distclean: clean
 .PHONY: help
 help:
 	@echo "Available targets:"
-	@echo "  all            - Build everything (default)"
-	@echo "  build          - Build firmware and create archive"
-	@echo "  check-deps     - Check for required dependencies"
-	@echo "  setup-redfish  - Set up Redfish configuration in DSC files"
-	@echo "  setup-edk2     - Build EDK2 BaseTools"
-	@echo "  setup-keys     - Download and generate all security keys"
+	@echo "  all                - Build everything (default)"
+	@echo "  build              - Build firmware and create archive"
+	@echo "  check-deps         - Check for required dependencies"
+	@echo "  setup-redfish      - Set up Redfish configuration in DSC files"
+	@echo "  setup-edk2         - Build EDK2 BaseTools"
+	@echo "  setup-keys         - Download and generate all security keys"
+	@echo "  setup-firmware     - Set up Trusted Firmware for Raspberry Pi"
 	@echo "  download-rpi-files - Download Raspberry Pi support files"
-	@echo "  checksums      - Display SHA-256 checksums"
-	@echo "  clean          - Clean build artifacts"
-	@echo "  distclean      - Clean everything including keys"
-	@echo "  help           - Show this help message"
+	@echo "  checksums          - Display SHA-256 checksums"
+	@echo "  clean              - Clean build artifacts"
+	@echo "  distclean          - Clean everything including keys"
+	@echo "  help               - Show this help message"
 	@echo ""
 	@echo "Environment variables:"
 	@echo "  VERSION        - Version string (default: git describe or 'dev')"
