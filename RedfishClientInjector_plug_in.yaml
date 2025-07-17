@@ -1,0 +1,11 @@
+## @file
+# Build plugin used to inject RedfishClient DSC includes into platform DSC files.
+#
+# Copyright (c) 2025. All rights reserved.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+{
+  "scope": "raspberrypi",
+  "name": "RedfishClient Injector Plugin",
+  "module": "RedfishClientInjectorPlugin",
+}
