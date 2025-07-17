@@ -1,7 +1,8 @@
 [submodule "edk2"]
 	path = edk2
 	url = https://github.com/tianocore/edk2.git
-	branch = edk2-stable202505
+	branch = master
+	head = 4cb3e8d46721c7d3410cc347e3262a64421e913c
 [submodule "platforms"]
 	path = platforms
 	url = https://github.com/tianocore/edk2-platforms.git
