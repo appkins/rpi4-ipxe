@@ -125,7 +125,7 @@ setup-redfish:
 	@grep -qF -- "  IpmiLib|MdeModulePkg/Library/BaseIpmiLibNull/BaseIpmiLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
 		sed -i '169a \  IpmiLib|MdeModulePkg/Library/BaseIpmiLibNull/BaseIpmiLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 	@grep -qF -- "!include RedfishPkg/RedfishLibs.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
-		sed -i '57a \!include RedfishPkg/RedfishLibs.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+		sed -i '56a \!include RedfishPkg/RedfishLibs.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 	@grep -qF -- "  DEFINE REDFISH_CLIENT_ALL_AUTOGENED = TRUE" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
 		sed -i '34a \  DEFINE REDFISH_CLIENT_ALL_AUTOGENED = TRUE' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 	@grep -qF -- "  DEFINE REDFISH_ENABLE          = TRUE" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
@@ -134,6 +134,7 @@ setup-redfish:
 		sed -i '321a \!include RedfishPkg/Redfish.fdf.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
 	@sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|0#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|1#g' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 	@sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|1#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|0#g' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+	@sed -i 's#gEfiMdeModulePkgTokenSpaceGuid.PcdBootDiscoveryPolicy|L"BootDiscoveryPolicy"|gBootDiscoveryPolicyMgrFormsetGuid|0#gEfiMdeModulePkgTokenSpaceGuid.PcdBootDiscoveryPolicy|L"BootDiscoveryPolicy"|gBootDiscoveryPolicyMgrFormsetGuid|1#g' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 	@echo "Patching JsonLib for NDEBUG build compatibility..."
 	@if grep -q "#ifndef NDEBUG" edk2/RedfishPkg/Library/JsonLib/load.c; then \
 		sed -i '338d' edk2/RedfishPkg/Library/JsonLib/load.c; \
@@ -303,15 +304,18 @@ checksums: $(FIRMWARE_FILE) $(ARCHIVE_FILE)
 .PHONY: build
 build: check-deps $(ARCHIVE_DIR)/armstub8.bin download-rpi-files setup-brcm $(ARCHIVE_FILE) checksums
 
+# Clean platforms submodule to remote state
+.PHONY: clean-platforms
+clean-platforms:
+	@echo "Resetting platforms submodule to remote state..."
+	git submodule update --init --force platforms
+	cd platforms && git clean -fd && git reset --hard HEAD
+
 # Clean build artifacts
 .PHONY: clean
-clean:
+clean: clean-platforms
 	@echo "Cleaning build artifacts..."
 	rm -rf Build/
-	rm -f $(ARCHIVE_DIR)/armstub8.bin
-	rm -f $(ARCHIVE_FILE)
-	rm -f $(RPI_FILES)
-	rm -rf $(OVERLAYS_DIR)
 	rm -rf firmware/build
 
 # Clean everything including keys
@@ -334,6 +338,7 @@ help:
 	@echo "  download-rpi-files - Download Raspberry Pi support files"
 	@echo "  checksums          - Display SHA-256 checksums"
 	@echo "  clean              - Clean build artifacts"
+	@echo "  clean-platforms    - Reset platforms submodule to remote state"
 	@echo "  distclean          - Clean everything including keys"
 	@echo "  help               - Show this help message"
 	@echo ""
