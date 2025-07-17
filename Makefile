@@ -108,11 +108,11 @@ $(IPXE_LOCAL_DIR)/general.h: $(IPXE_LOCAL_DIR)
 
 $(IPXE_LOCAL_DIR)/bin-arm64-efi/snp.efi: $(IPXE_LOCAL_DIR)/general.h
 	@echo "Building iPXE SNP driver..."
-	CROSS_COMPILE=$(GCC5_AARCH64_PREFIX) \
 	$(MAKE) -C $(IPXE_DIR) \
 		bin-arm64-efi/snp.efi \
 		-j4 \
-		CONFIG=rpi
+		CONFIG=rpi \
+		CROSS=$(GCC5_AARCH64_PREFIX)
 
 .PHONY: setup-ipxe
 setup-ipxe: $(IPXE_LOCAL_DIR)/bin-arm64-efi/snp.efi
@@ -344,6 +344,7 @@ clean-platforms:
 .PHONY: clean
 clean: clean-platforms
 	@echo "Cleaning build artifacts..."
+	$(MAKE) -C $(IPXE_DIR) clean
 	rm -rf Build/
 	rm -rf firmware/build
 

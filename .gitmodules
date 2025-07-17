@@ -21,4 +21,4 @@
 [submodule "firmware"]
 	path = firmware
 	url = https://github.com/ARM-software/arm-trusted-firmware.git
-  head = c17351450c8a513ca3f30f936e26a71db693a145
+  head = 8a8904aaddcc9497b2c3d110785b52e4d1dca336
