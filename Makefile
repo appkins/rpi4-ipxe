@@ -23,6 +23,8 @@ ARCHIVE_DIR := $(BUILD_DIR)/archive
 FIRMWARE_DIR := $(BUILD_DIR)/RPi4/RELEASE_$(COMPILER)/FV
 OVERLAYS_DIR := $(ARCHIVE_DIR)/overlays
 BRCM_DIR := $(ARCHIVE_DIR)/firmware
+IPXE_DIR := ipxe/src
+IPXE_LOCAL_DIR := $(IPXE_DIR)/config/local
 
 # Generated files
 ARCHIVE_FILE := RPi4_UEFI_Firmware_$(VERSION).zip
@@ -87,6 +89,33 @@ TRUSTED_FIRMWARE_DST := internal/Platform/RaspberryPi/RPi5/TrustedFirmware/bl31.
 # Default target
 .PHONY: all
 all: $(ARCHIVE_FILE)
+
+$(IPXE_LOCAL_DIR):
+	@echo "Creating local configuration directory..."
+	@mkdir -p $(IPXE_LOCAL_DIR)
+
+$(IPXE_LOCAL_DIR)/general.h: $(IPXE_LOCAL_DIR)
+	@echo "Creating general.h file..."
+	@echo "#define NSLOOKUP_CMD" > $@
+	@echo "#define PING_CMD" >> $@
+	@echo "#define NTP_CMD" >> $@
+	@echo "#define VLAN_CMD" >> $@
+	@echo "#define IMAGE_EFI" >> $@
+	@echo "#define DOWNLOAD_PROTO_HTTPS" >> $@
+	@echo "#define DOWNLOAD_PROTO_FTP" >> $@
+	@echo "#define DOWNLOAD_PROTO_NFS" >> $@
+	@echo "#define DOWNLOAD_PROTO_FILE" >> $@
+
+$(IPXE_LOCAL_DIR)/bin-arm64-efi/snp.efi: $(IPXE_LOCAL_DIR)/general.h
+	@echo "Building iPXE SNP driver..."
+	CROSS_COMPILE=$(GCC5_AARCH64_PREFIX) \
+	$(MAKE) -C $(IPXE_DIR) \
+		bin-arm64-efi/snp.efi \
+		-j4 \
+		CONFIG=rpi
+
+.PHONY: setup-ipxe
+setup-ipxe: $(IPXE_LOCAL_DIR)/bin-arm64-efi/snp.efi
 
 # Check for required tools
 .PHONY: check-deps

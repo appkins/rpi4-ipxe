@@ -20,7 +20,7 @@
 	path = ipxe
 	url = https://github.com/ipxe/ipxe.git
 	branch = master
-	head = 8a8904aaddcc9497b2c3d110785b52e4d1dca336
+	head = 6ca597eee9f95b846a3c2dc1231e63cfc02272c1
 [submodule "firmware"]
 	path = firmware
 	url = https://github.com/ARM-software/arm-trusted-firmware.git
