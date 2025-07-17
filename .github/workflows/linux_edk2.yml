@@ -66,12 +66,22 @@ jobs:
 
       - name: Set up Redfish in UEFI firmware
         run: |
-          grep -qF -- "  DEFINE REDFISH_ENABLE         = FALSE" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '34a \  DEFINE REDFISH_ENABLE         = FALSE' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-          grep -qF -- "!include RedfishPkg/RedfishLibs.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '58a \!include RedfishPkg/RedfishLibs.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+          grep -qF -- "  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '732a \  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+          grep -qF -- "  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceBmcUsbNicLib/PlatformHostInterfaceBmcUsbNicLib.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '732a \  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceBmcUsbNicLib/PlatformHostInterfaceBmcUsbNicLib.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+
+          grep -qF -- "  RedfishPlatformWantedDeviceLib|RedfishPkg/Library/RedfishPlatformWantedDeviceLibNull/RedfishPlatformWantedDeviceLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '680a \  RedfishPlatformWantedDeviceLib|RedfishPkg/Library/RedfishPlatformWantedDeviceLibNull/RedfishPlatformWantedDeviceLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+          grep -qF -- "  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceLibNull/PlatformHostInterfaceLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '680a \  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceLibNull/PlatformHostInterfaceLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+          grep -qF -- "  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '680a \  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+
           grep -qF -- "!include RedfishPkg/RedfishComponents.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '596a \!include RedfishPkg/RedfishComponents.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+
           grep -qF -- "!include RedfishClientPkg/RedfishClientDefines.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '56a \!include RedfishClientPkg/RedfishClientDefines.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 
-          grep -qF -- "!include RedfishPkg/Redfish.fdf.inc" "platforms/Platform/RaspberryPi/RPi4/RPi4.fdf" || sed -i '250a \!include RedfishPkg/Redfish.fdf.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
+          grep -qF -- "!include RedfishPkg/RedfishLibs.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '58a \!include RedfishPkg/RedfishLibs.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+          grep -qF -- "  DEFINE REDFISH_ENABLE         = FALSE" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || sed -i '34a \  DEFINE REDFISH_ENABLE         = FALSE' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+
+
+          grep -qF -- "!include RedfishPkg/Redfish.fdf.inc" "platforms/Platform/RaspberryPi/RPi4/RPi4.fdf" || sed -i '321a \!include RedfishPkg/Redfish.fdf.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
 
           sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|0#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|1#g' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
           sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|1#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|0#g' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
