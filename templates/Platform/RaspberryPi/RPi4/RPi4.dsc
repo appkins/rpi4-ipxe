@@ -172,7 +172,10 @@
 
   IpmiLib|MdeModulePkg/Library/BaseIpmiLibNull/BaseIpmiLibNull.inf
   IpmiCommandLib|MdeModulePkg/Library/BaseIpmiCommandLibNull/BaseIpmiCommandLibNull.inf
-  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceLibNull/PlatformHostInterfaceLibNull.inf
+  # Use EmulatorPkg libraries for enhanced variable-based Redfish configuration
+  # These provide better integration with RedfishPlatformConfig.efi and runtime configuration
+  RedfishPlatformHostInterfaceLib|EmulatorPkg/Library/RedfishPlatformHostInterfaceLib/RedfishPlatformHostInterfaceLib.inf
+  RedfishPlatformCredentialLib|EmulatorPkg/Library/RedfishPlatformCredentialLib/RedfishPlatformCredentialLib.inf
   RedfishPlatformWantedDeviceLib|RedfishPkg/Library/RedfishPlatformWantedDeviceLibNull/RedfishPlatformWantedDeviceLibNull.inf
   #
 !include RedfishClientPkg/RedfishClientLibs.dsc.inc
@@ -460,6 +463,52 @@
 
   gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor|L"EDK2"
   gEfiMdeModulePkgTokenSpaceGuid.PcdSetNxForStack|TRUE
+
+!if $(REDFISH_ENABLE) == TRUE
+  # Redfish service early synchronization configuration (based on EmulatorPkg)
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceDevicePath.DevicePathMatchMode|DEVICE_PATH_MATCH_MAC_NODE
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceDevicePath.DevicePathNum|1
+  #
+  # Network device path for Redfish service binding (will be auto-detected at runtime)
+  # This placeholder will be updated by RedfishPlatformConfig.efi or automatic detection
+  #
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceDevicePath.DevicePath|{DEVICE_PATH("MAC(000000000000,0x1)")}
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceAccessModeInBand|False
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishDiscoverAccessModeInBand|False
+
+  # Platform-specific Redfish service control
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceStopIfSecureBootDisabled|FALSE
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceStopIfExitbootService|FALSE
+
+  # Redfish Client configuration for early synchronization
+  gEfiRedfishClientPkgTokenSpaceGuid.PcdRedfishServiceEtagSupported|TRUE
+
+  # Default service credentials (can be overridden via EFI variables)
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId|"root"
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword|"password123456"
+
+  # Network Configuration for Redfish access
+  gEfiNetworkPkgTokenSpaceGuid.PcdAllowHttpConnections|TRUE
+
+  # Content encoding support
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServiceContentEncoding|"None"
+
+  #
+  # Redfish Debug enablement (similar to EmulatorPkg)
+  #
+  # 0x0000000000000001  RedfishPlatformConfigDxe driver debug enabled.
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishDebugCategory|0
+  #   0x00000001  x-uefi-redfish string database message enabled
+  #   0x00000002  Debug Message for dumping formset
+  #   0x00000004  Debug Message for x-uefi-redfish searching result
+  #   0x00000008  Debug Message for x-uefi-redfish Regular Expression searching result
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishPlatformConfigDebugProperty|0
+
+  # Redfish Platform Configure DXE driver feature enablement
+  #   0x00000001  Enable building Redfish Attribute Registry menu path.
+  #   0x00000002  Allow suppressed HII option to be exposed on Redfish.
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishPlatformConfigFeatureProperty|0
+!endif
 
 [PcdsPatchableInModule]
   gEfiMdeModulePkgTokenSpaceGuid.PcdSerialClockRate|500000000
@@ -751,6 +800,11 @@
   }
 
 !include RedfishPkg/RedfishComponents.dsc.inc
+
+!if $(REDFISH_ENABLE) == TRUE
+  # Redfish Platform Configuration Application for runtime setup
+  EmulatorPkg/Application/RedfishPlatformConfig/RedfishPlatformConfig.inf
+!endif
   #
   # RNG
   #
