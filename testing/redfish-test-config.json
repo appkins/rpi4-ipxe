@@ -1,0 +1,34 @@
+{
+  "configuration_type": "simulator",
+  "redfish_service": {
+    "ip_address": "127.0.0.1",
+    "port": 5001,
+    "username": "root",
+    "password": "password123456",
+    "base_url": "http://127.0.0.1:5001"
+  },
+  "network_config": {
+    "local_ip": "127.0.0.0",
+    "subnet_mask": "255.255.255.0",
+    "network_mac": ""
+  },
+  "test_endpoints": [
+    "/redfish/v1/",
+    "/redfish/v1/Systems/",
+    "/redfish/v1/Systems/system/",
+    "/redfish/v1/Systems/system/Bios/",
+    "/redfish/v1/Chassis/",
+    "/redfish/v1/Managers/"
+  ],
+  "expected_resources": {
+    "service_root": {
+      "required_properties": ["@odata.type", "@odata.id", "Name", "RedfishVersion"]
+    },
+    "computer_system": {
+      "required_properties": ["@odata.type", "@odata.id", "Name", "SystemType", "Boot"]
+    },
+    "bios": {
+      "required_properties": ["@odata.type", "@odata.id", "Name", "Attributes"]
+    }
+  }
+}

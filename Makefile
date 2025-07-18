@@ -66,6 +66,7 @@ BRCM_FILES := $(addprefix $(BRCM_DIR)/, $(BRCM_FILES))
 PACKAGES_PATH := $(WORKSPACE)/edk2:$(WORKSPACE)/platforms:$(WORKSPACE)/non-osi:$(WORKSPACE):$(WORKSPACE)/redfish-client
 BUILD_FLAGS := -D NETWORK_ALLOW_HTTP_CONNECTIONS=TRUE \
                -D REDFISH_ENABLE=TRUE \
+               -D REDFISH_CLIENT=TRUE \
 							 -D NDEBUG=TRUE \
                -D SECURE_BOOT_ENABLE=TRUE \
                -D INCLUDE_TFTP_COMMAND=TRUE \
@@ -139,6 +140,10 @@ setup-redfish:
 	@echo "Setting up Redfish in UEFI firmware..."
 	@grep -qF -- "!include RedfishPkg/RedfishComponents.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
 		sed -i '742a \!include RedfishPkg/RedfishComponents.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+	@grep -qF -- "!include RedfishClientPkg/RedfishClientComponents.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
+		sed -i '742a \!include RedfishClientPkg/RedfishClientComponents.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+	@grep -qF -- "!include RedfishClientPkg/RedfishClientLibs.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
+		sed -i '177a \!include RedfishClientPkg/RedfishClientLibs.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 	@grep -qF -- "  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
 		sed -i '177a \  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 	@grep -qF -- "  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceBmcUsbNicLib/PlatformHostInterfaceBmcUsbNicLib.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
@@ -254,6 +259,7 @@ $(FIRMWARE_FILE): setup-edk2 setup-redfish $(KEY_FILES)
 		-p platforms/Platform/RaspberryPi/RPi4/RPi4.dsc \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor=L"$(PROJECT_URL)" \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString=L"UEFI Firmware $(VERSION)" \
+		--pcd gEfiRedfishClientPkgTokenSpaceGuid.PcdRedfishServiceEtagSupported=TRUE \
 		$(BUILD_FLAGS) $(DEFAULT_KEYS) $(TLS_DISABLE_FLAGS)
 
 # Copy firmware to root directory
