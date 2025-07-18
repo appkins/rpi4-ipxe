@@ -138,6 +138,9 @@ check-deps:
 .PHONY: setup-redfish
 setup-redfish:
 	@echo "Setting up Redfish in UEFI firmware..."
+	# Clean any existing BMC USB NIC configuration first
+	@sed -i '/RedfishPlatformHostInterfaceLib.*PlatformHostInterfaceBmcUsbNicLib/d' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || true
+	@sed -i '/RedfishPlatformCredentialLib.*RedfishPlatformCredentialLibIpmi/d' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || true
 	@grep -qF -- "!include RedfishPkg/RedfishComponents.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
 		sed -i '742a \!include RedfishPkg/RedfishComponents.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 	@grep -qF -- "!include RedfishClientPkg/RedfishClientComponents.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
@@ -146,18 +149,18 @@ setup-redfish:
 		sed -i '177a \!include RedfishClientPkg/RedfishClientLibs.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 	@grep -qF -- "  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
 		sed -i '177a \  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-	@grep -qF -- "  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceBmcUsbNicLib/PlatformHostInterfaceBmcUsbNicLib.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
-		sed -i '177a \  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceBmcUsbNicLib/PlatformHostInterfaceBmcUsbNicLib.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-	@grep -qF -- "  RedfishPlatformWantedDeviceLib|RedfishPkg/Library/RedfishPlatformWantedDeviceLibNull/RedfishPlatformWantedDeviceLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
-		sed -i '169a \  RedfishPlatformWantedDeviceLib|RedfishPkg/Library/RedfishPlatformWantedDeviceLibNull/RedfishPlatformWantedDeviceLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-	@grep -qF -- "  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceLibNull/PlatformHostInterfaceLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
-		sed -i '169a \  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceLibNull/PlatformHostInterfaceLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-	@grep -qF -- "  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
-		sed -i '169a \  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-	@grep -qF -- "  IpmiCommandLib|MdeModulePkg/Library/BaseIpmiCommandLibNull/BaseIpmiCommandLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
-		sed -i '169a \  IpmiCommandLib|MdeModulePkg/Library/BaseIpmiCommandLibNull/BaseIpmiCommandLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+	# Replace BMC-specific libraries with EmulatorPkg variants for enhanced configuration
+	@sed -i 's#RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceLibNull/PlatformHostInterfaceLibNull.inf#RedfishPlatformHostInterfaceLib|EmulatorPkg/Library/RedfishPlatformHostInterfaceLib/RedfishPlatformHostInterfaceLib.inf#g' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || true
 	@grep -qF -- "  IpmiLib|MdeModulePkg/Library/BaseIpmiLibNull/BaseIpmiLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
 		sed -i '169a \  IpmiLib|MdeModulePkg/Library/BaseIpmiLibNull/BaseIpmiLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+	@grep -qF -- "  IpmiCommandLib|MdeModulePkg/Library/BaseIpmiCommandLibNull/BaseIpmiCommandLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
+		sed -i '169a \  IpmiCommandLib|MdeModulePkg/Library/BaseIpmiCommandLibNull/BaseIpmiCommandLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+	@grep -qF -- "  RedfishPlatformWantedDeviceLib|RedfishPkg/Library/RedfishPlatformWantedDeviceLibNull/RedfishPlatformWantedDeviceLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
+		sed -i '169a \  RedfishPlatformWantedDeviceLib|RedfishPkg/Library/RedfishPlatformWantedDeviceLibNull/RedfishPlatformWantedDeviceLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+	@grep -qF -- "  RedfishPlatformHostInterfaceLib|EmulatorPkg/Library/RedfishPlatformHostInterfaceLib/RedfishPlatformHostInterfaceLib.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
+		sed -i '169a \  RedfishPlatformHostInterfaceLib|EmulatorPkg/Library/RedfishPlatformHostInterfaceLib/RedfishPlatformHostInterfaceLib.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
+	@grep -qF -- "  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
+		sed -i '169a \  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 	@grep -qF -- "!include RedfishPkg/RedfishLibs.dsc.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
 		sed -i '56a \!include RedfishPkg/RedfishLibs.dsc.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 	@grep -qF -- "  DEFINE REDFISH_CLIENT_ALL_AUTOGENED = TRUE" platforms/Platform/RaspberryPi/RPi4/RPi4.dsc || \
@@ -166,6 +169,7 @@ setup-redfish:
 		sed -i '34a \  DEFINE REDFISH_ENABLE          = TRUE' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 	@grep -qF -- "!include RedfishPkg/Redfish.fdf.inc" platforms/Platform/RaspberryPi/RPi4/RPi4.fdf || \
 		sed -i '321a \!include RedfishPkg/Redfish.fdf.inc' platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
+	# Configure for early Redfish initialization (before other boot methods)
 	@sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|0#gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB|L"RamMoreThan3GB"|gConfigDxeFormSetGuid|0x0|1#g' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 	@sed -i 's#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|1#gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB|L"RamLimitTo3GB"|gConfigDxeFormSetGuid|0x0|0#g' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 	@sed -i 's#gEfiMdeModulePkgTokenSpaceGuid.PcdBootDiscoveryPolicy|L"BootDiscoveryPolicy"|gBootDiscoveryPolicyMgrFormsetGuid|0#gEfiMdeModulePkgTokenSpaceGuid.PcdBootDiscoveryPolicy|L"BootDiscoveryPolicy"|gBootDiscoveryPolicyMgrFormsetGuid|1#g' platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
@@ -182,7 +186,8 @@ setup-redfish:
 .PHONY: setup-edk2
 setup-edk2:
 	@echo "Setting up EDK2 BaseTools..."
-	$(MAKE) -C edk2/BaseTools
+	@echo "Using native macOS toolchain for BaseTools..."
+	PATH="/usr/bin:/bin:/usr/sbin:/sbin" $(MAKE) -C edk2/BaseTools CC=clang CXX=clang++ AR=/usr/bin/ar RANLIB=/usr/bin/ranlib
 	@echo "EDK2 BaseTools setup complete"
 
 $(TRUSTED_FIRMWARE_SRC):
@@ -260,6 +265,10 @@ $(FIRMWARE_FILE): setup-edk2 setup-redfish $(KEY_FILES)
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor=L"$(PROJECT_URL)" \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString=L"UEFI Firmware $(VERSION)" \
 		--pcd gEfiRedfishClientPkgTokenSpaceGuid.PcdRedfishServiceEtagSupported=TRUE \
+		--pcd gEmulatorPkgTokenSpaceGuid.PcdRedfishServiceUserId="root" \
+		--pcd gEmulatorPkgTokenSpaceGuid.PcdRedfishServicePassword="password123456" \
+		--pcd gEfiNetworkPkgTokenSpaceGuid.PcdAllowHttpConnections=TRUE \
+		--pcd gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServiceContentEncoding="None" \
 		$(BUILD_FLAGS) $(DEFAULT_KEYS) $(TLS_DISABLE_FLAGS)
 
 # Copy firmware to root directory
@@ -324,7 +333,7 @@ $(ARCHIVE_DIR)/Readme.md:
 	cp Readme.md $(ARCHIVE_DIR)/Readme.md
 
 # Create UEFI firmware archive
-$(ARCHIVE_FILE): $(ARCHIVE_DIR) $(ARCHIVE_DIR)/armstub8-gic.bin $(RPI_FILES) $(OVERLAY_FILES) $(ARCHIVE_DIR)/config.txt $(ARCHIVE_DIR)/Readme.md
+$(ARCHIVE_FILE): $(ARCHIVE_DIR) $(ARCHIVE_DIR)/armstub8-gic.bin setup-brcm $(RPI_FILES) $(OVERLAY_FILES) $(ARCHIVE_DIR)/config.txt $(ARCHIVE_DIR)/Readme.md
 	@echo "Creating UEFI firmware archive..."
 	cd $(ARCHIVE_DIR) && \
 	zip -r ../$@ armstub8-gic.bin $(notdir $(RPI_FILES)) config.txt overlays Readme.md firmware efi

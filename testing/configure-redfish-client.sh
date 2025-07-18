@@ -244,22 +244,25 @@ EOF
     case "${CONFIG_TYPE}" in
         simulator)
             cat >> "${config_file}" << EOF
-  # Use EmulatorPkg-style configuration for simulator testing
-  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceLibNull/PlatformHostInterfaceLibNull.inf
+  # Remote Redfish Service Configuration (Simulator)
+  # Use EmulatorPkg implementation for enhanced variable-based configuration
+  RedfishPlatformHostInterfaceLib|EmulatorPkg/Library/RedfishPlatformHostInterfaceLib/RedfishPlatformHostInterfaceLib.inf
   RedfishPlatformCredentialLib|EmulatorPkg/Library/RedfishPlatformCredentialLib/RedfishPlatformCredentialLib.inf
 EOF
             ;;
         bmcd)
             cat >> "${config_file}" << EOF
-  # Use BMC-based discovery for production environments
+  # BMC Discovery Configuration (Production with dedicated BMC)
+  # Use BMC USB NIC discovery - requires IPMI-capable BMC with USB NIC exposure
   RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceBmcUsbNicLib/PlatformHostInterfaceBmcUsbNicLib.inf
   RedfishPlatformCredentialLib|RedfishPkg/Library/RedfishPlatformCredentialLibIpmi/RedfishPlatformCredentialLibIpmi.inf
 EOF
             ;;
         static)
             cat >> "${config_file}" << EOF
-  # Use static configuration for lab/testing environments
-  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceLibNull/PlatformHostInterfaceLibNull.inf
+  # Static Remote Redfish Service Configuration
+  # Use EmulatorPkg implementation for enhanced variable-based configuration
+  RedfishPlatformHostInterfaceLib|EmulatorPkg/Library/RedfishPlatformHostInterfaceLib/RedfishPlatformHostInterfaceLib.inf
   RedfishPlatformCredentialLib|EmulatorPkg/Library/RedfishPlatformCredentialLib/RedfishPlatformCredentialLib.inf
 EOF
             ;;
@@ -290,6 +293,11 @@ EOF
 
   # Content encoding support (simulator typically doesn't support compression)
   gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServiceContentEncoding|"None"
+
+  # Enable early Redfish configuration application (before other boot methods)
+  gEfiRedfishClientPkgTokenSpaceGuid.PcdRedfishFeatureDriverStartupEvent|{GUID("27ABF055-B1B8-4C26-8048-748F37BAA2DF")}
+  gEfiRedfishClientPkgTokenSpaceGuid.PcdRedfishServiceEtagSupported|TRUE
+  gEfiRedfishClientPkgTokenSpaceGuid.PcdRedfishSystemRebootRequired|TRUE
 EOF
             ;;
         bmcd|static)
@@ -303,6 +311,10 @@ EOF
 
   # ETAG support for production environments
   gEfiRedfishClientPkgTokenSpaceGuid.PcdRedfishServiceEtagSupported|TRUE
+
+  # Enable early Redfish configuration application (before other boot methods)
+  gEfiRedfishClientPkgTokenSpaceGuid.PcdRedfishFeatureDriverStartupEvent|{GUID("27ABF055-B1B8-4C26-8048-748F37BAA2DF")}
+  gEfiRedfishClientPkgTokenSpaceGuid.PcdRedfishSystemRebootRequired|TRUE
 EOF
             ;;
     esac

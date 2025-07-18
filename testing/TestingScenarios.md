@@ -5,11 +5,13 @@ This document outlines the different testing scenarios for the RPi4 UEFI Redfish
 ## Testing Levels
 
 ### Level 1: Simulator Testing (Current)
+
 **What**: Test against DMTF Redfish Profile Simulator
 **Requirements**: None (software only)
 **Purpose**: Validate Redfish API structure and client connectivity
 
 **Available Resources**:
+
 - ✅ Service Root (`/redfish/v1/`)
 - ✅ Systems Collection (`/redfish/v1/Systems/`)
 - ✅ System Instance (`/redfish/v1/Systems/2M220100SL/`)
@@ -18,45 +20,53 @@ This document outlines the different testing scenarios for the RPi4 UEFI Redfish
 - ❌ BIOS Resource (not in SimpleOcpServerV1 mockup)
 
 **What We Test**:
+
 - Basic Redfish endpoint connectivity
 - Authentication mechanisms
 - JSON schema compliance
 - HTTP response codes
 
 **Limitations**:
+
 - Static mockup data only
 - No real BIOS integration
 - No actual configuration changes
 - No firmware synchronization
 
 ### Level 2: Emulated RPi4 Testing (Future)
+
 **What**: Test with QEMU-emulated RPi4 running our UEFI firmware
 **Requirements**: QEMU with ARM64 support, network bridge setup
 **Purpose**: Test firmware Redfish client without physical hardware
 
 **Available Resources**:
+
 - ✅ All Level 1 resources
 - ✅ BIOS Resource (`/redfish/v1/Systems/system/Bios/`)
 - ✅ Boot Configuration
 - ✅ Firmware-managed settings
 
 **What We Test**:
+
 - UEFI Redfish client initialization
 - HII to Redfish mapping
 - Configuration language processing
 - Basic synchronization flows
 
 **Limitations**:
+
 - Emulated hardware only
 - May not reflect all real hardware behaviors
 - Network configuration complexity
 
 ### Level 3: Physical RPi4 Testing (Ultimate)
+
 **What**: Test with actual RPi4 hardware running our UEFI firmware
 **Requirements**: Physical RPi4, network connectivity, BMC or Redfish service
 **Purpose**: Full end-to-end validation of Redfish implementation
 
 **Available Resources**:
+
 - ✅ All Level 1 & 2 resources
 - ✅ Real hardware sensors
 - ✅ Actual boot sequences
@@ -64,6 +74,7 @@ This document outlines the different testing scenarios for the RPi4 UEFI Redfish
 - ✅ Real storage devices
 
 **What We Test**:
+
 - Complete BIOS state synchronization
 - Real configuration changes
 - Boot order management
@@ -139,6 +150,7 @@ The BIOS resource (`/redfish/v1/Systems/system/Bios/`) would be available when:
 ## Next Steps for BIOS Testing
 
 ### Option 1: Enhanced Simulator (Recommended for Development)
+
 Create a custom simulator that includes BIOS resources:
 
 ```bash
@@ -147,6 +159,7 @@ Create a custom simulator that includes BIOS resources:
 ```
 
 ### Option 2: QEMU Emulation (Advanced Testing)
+
 Set up QEMU with our UEFI firmware:
 
 ```bash
@@ -155,6 +168,7 @@ Set up QEMU with our UEFI firmware:
 ```
 
 ### Option 3: Physical Hardware (Production Validation)
+
 Boot RPi4 with our firmware and test real BIOS synchronization:
 
 1. Flash firmware to RPi4
@@ -165,12 +179,14 @@ Boot RPi4 with our firmware and test real BIOS synchronization:
 ## Configuration for Each Level
 
 ### Simulator Configuration (Current)
+
 ```bash
 # Configure for simulator testing
 ./testing/configure-redfish-client.sh --type simulator --server 127.0.0.1 --port 5001 --password password123456
 ```
 
 ### Future Hardware Configuration
+
 ```bash
 # Configure for BMC-based discovery
 ./testing/configure-redfish-client.sh --type bmcd --server 192.168.1.100 --port 443
