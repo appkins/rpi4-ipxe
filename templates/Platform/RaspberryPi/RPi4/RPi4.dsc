@@ -611,6 +611,15 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdConOutRow|L"Rows"|gRaspberryPiTokenSpaceGuid|0x0|25
   gEfiMdeModulePkgTokenSpaceGuid.PcdBootDiscoveryPolicy|L"BootDiscoveryPolicy"|gBootDiscoveryPolicyMgrFormsetGuid|1
 
+!if $(REDFISH_ENABLE) == TRUE
+  #
+  # Redfish service IP configuration - configurable via UEFI UI
+  #
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceIpAddress|L"RedfishServiceIpAddress"|gConfigDxeFormSetGuid|0x0|"192.168.1.100"
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceIpMask|L"RedfishServiceIpMask"|gConfigDxeFormSetGuid|0x0|"255.255.255.0"
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceIpPort|L"RedfishServiceIpPort"|gConfigDxeFormSetGuid|0x0|L"5000"
+!endif
+
 [PcdsDynamicDefault.common]
   #
   # Set video resolution for boot options and for text setup.

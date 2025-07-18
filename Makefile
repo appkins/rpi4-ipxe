@@ -148,6 +148,16 @@ apply-templates:
 	@cp $(TEMPLATES_DIR)/Platform/RaspberryPi/RPi4/RPi4.dsc platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
 	@echo "Copying RPi4.fdf with Redfish component integration..."
 	@cp $(TEMPLATES_DIR)/Platform/RaspberryPi/RPi4/RPi4.fdf platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
+	@echo "Copying ConfigVars.h with Redfish IP configuration structures..."
+	@cp $(TEMPLATES_DIR)/Platform/RaspberryPi/Include/ConfigVars.h platforms/Platform/RaspberryPi/Include/ConfigVars.h
+	@echo "Copying ConfigDxeHii.vfr with Redfish UI form..."
+	@cp $(TEMPLATES_DIR)/Platform/RaspberryPi/Drivers/ConfigDxe/ConfigDxeHii.vfr platforms/Platform/RaspberryPi/Drivers/ConfigDxe/ConfigDxeHii.vfr
+	@echo "Copying ConfigDxeHii.uni with Redfish UI strings..."
+	@cp $(TEMPLATES_DIR)/Platform/RaspberryPi/Drivers/ConfigDxe/ConfigDxeHii.uni platforms/Platform/RaspberryPi/Drivers/ConfigDxe/ConfigDxeHii.uni
+	@echo "Copying ConfigDxe.c with Redfish variable initialization..."
+	@cp $(TEMPLATES_DIR)/Platform/RaspberryPi/Drivers/ConfigDxe/ConfigDxe.c platforms/Platform/RaspberryPi/Drivers/ConfigDxe/ConfigDxe.c
+	@echo "Copying ConfigDxe.inf with Redfish PCD declarations..."
+	@cp $(TEMPLATES_DIR)/Platform/RaspberryPi/Drivers/ConfigDxe/ConfigDxe.inf platforms/Platform/RaspberryPi/Drivers/ConfigDxe/ConfigDxe.inf
 	@echo "Template overlay complete"
 
 # Set up EDK2 BaseTools
