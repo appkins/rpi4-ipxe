@@ -148,22 +148,58 @@ typedef struct {
 } MMC_EMMC_DMA_VARSTORE_DATA;
 
 /*
- * Redfish service IP configuration structures for UEFI UI
+ * Network Protocol configuration structures aligned with Redfish ManagerNetworkProtocol schema
  */
-#define REDFISH_IP_STR_MAX_LEN       15   // xxx.xxx.xxx.xxx
-#define REDFISH_IP_STR_STORAGE_SIZE  16
 typedef struct {
-  CHAR16 IpAddress[REDFISH_IP_STR_STORAGE_SIZE];
-} REDFISH_SERVICE_IP_ADDRESS_VARSTORE_DATA;
+  /*
+   * 0 - Redfish service disabled
+   * 1 - Redfish service enabled
+   */
+  UINT8 Enabled;
+} REDFISH_ENABLED_VARSTORE_DATA;
 
 typedef struct {
-  CHAR16 IpMask[REDFISH_IP_STR_STORAGE_SIZE];
-} REDFISH_SERVICE_IP_MASK_VARSTORE_DATA;
+  /*
+   * TCP port for Redfish service (default: 443 for HTTPS)
+   */
+  UINT16 Port;
+} REDFISH_PORT_VARSTORE_DATA;
 
-#define REDFISH_PORT_STR_MAX_LEN      5    // 65535
-#define REDFISH_PORT_STR_STORAGE_SIZE 6
+/*
+ * External Redfish Service configuration for client connectivity
+ */
+#define REDFISH_HOSTNAME_STR_MAX_LEN      64
+#define REDFISH_HOSTNAME_STR_STORAGE_SIZE 65
 typedef struct {
-  CHAR16 Port[REDFISH_PORT_STR_STORAGE_SIZE];
-} REDFISH_SERVICE_IP_PORT_VARSTORE_DATA;
+  CHAR16 Hostname[REDFISH_HOSTNAME_STR_STORAGE_SIZE];
+} REDFISH_HOSTNAME_VARSTORE_DATA;
+
+#define REDFISH_USERNAME_STR_MAX_LEN      32
+#define REDFISH_USERNAME_STR_STORAGE_SIZE 33
+typedef struct {
+  CHAR16 Username[REDFISH_USERNAME_STR_STORAGE_SIZE];
+} REDFISH_USERNAME_VARSTORE_DATA;
+
+#define REDFISH_PASSWORD_STR_MAX_LEN      32
+#define REDFISH_PASSWORD_STR_STORAGE_SIZE 33
+typedef struct {
+  CHAR16 Password[REDFISH_PASSWORD_STR_STORAGE_SIZE];
+} REDFISH_PASSWORD_VARSTORE_DATA;
+
+typedef struct {
+  /*
+   * 0 - HTTP (insecure)
+   * 1 - HTTPS (secure)
+   */
+  UINT8 UseHttps;
+} REDFISH_USE_HTTPS_VARSTORE_DATA;
+
+typedef struct {
+  /*
+   * 0 - Verify SSL certificates
+   * 1 - Skip SSL certificate verification (insecure)
+   */
+  UINT8 SkipCertVerification;
+} REDFISH_SKIP_CERT_VARSTORE_DATA;
 
 #endif /* CONFIG_VARS_H */

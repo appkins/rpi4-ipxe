@@ -423,67 +423,148 @@ SetupVariables (
   }
 
   /*
-   * Initialize Redfish service IP configuration variables
+   * Initialize Redfish service configuration variables
    * Following the same pattern as other configuration variables
    */
-  REDFISH_SERVICE_IP_ADDRESS_VARSTORE_DATA RedfishIpAddressVar;
-  REDFISH_SERVICE_IP_MASK_VARSTORE_DATA RedfishIpMaskVar;
-  REDFISH_SERVICE_IP_PORT_VARSTORE_DATA RedfishIpPortVar;
+  REDFISH_ENABLED_VARSTORE_DATA RedfishEnabledVar;
+  REDFISH_PORT_VARSTORE_DATA RedfishPortVar;
+  REDFISH_HOSTNAME_VARSTORE_DATA RedfishHostnameVar;
+  REDFISH_USERNAME_VARSTORE_DATA RedfishUsernameVar;
+  REDFISH_PASSWORD_VARSTORE_DATA RedfishPasswordVar;
+  REDFISH_USE_HTTPS_VARSTORE_DATA RedfishUseHttpsVar;
+  REDFISH_SKIP_CERT_VARSTORE_DATA RedfishSkipCertVar;
 
-  Size = sizeof (REDFISH_SERVICE_IP_ADDRESS_VARSTORE_DATA);
-  Status = gRT->GetVariable (L"RedfishServiceIpAddress",
+  Size = sizeof (REDFISH_ENABLED_VARSTORE_DATA);
+  Status = gRT->GetVariable (L"RedfishEnabled",
                              &gConfigDxeFormSetGuid,
-                             NULL, &Size, &RedfishIpAddressVar);
+                             NULL, &Size, &RedfishEnabledVar);
   if (EFI_ERROR (Status)) {
-    // Set default IP address from PCD
-    CHAR16 *DefaultIpAddress = PcdGetPtr (PcdRedfishServiceIpAddress);
+    // Set default Redfish service enabled state (default: disabled)
+    RedfishEnabledVar.Enabled = 0;
     Status = gRT->SetVariable (
-                    L"RedfishServiceIpAddress",
+                    L"RedfishEnabled",
                     &gConfigDxeFormSetGuid,
                     EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
-                    StrSize (DefaultIpAddress),
-                    DefaultIpAddress
+                    sizeof (RedfishEnabledVar),
+                    &RedfishEnabledVar
                     );
     if (!EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_INFO, "%a: Set default RedfishServiceIpAddress\n", __func__));
+      DEBUG ((DEBUG_INFO, "%a: Set default RedfishEnabled\n", __func__));
     }
   }
 
-  Size = sizeof (REDFISH_SERVICE_IP_MASK_VARSTORE_DATA);
-  Status = gRT->GetVariable (L"RedfishServiceIpMask",
+  Size = sizeof (REDFISH_PORT_VARSTORE_DATA);
+  Status = gRT->GetVariable (L"RedfishPort",
                              &gConfigDxeFormSetGuid,
-                             NULL, &Size, &RedfishIpMaskVar);
+                             NULL, &Size, &RedfishPortVar);
   if (EFI_ERROR (Status)) {
-    // Set default IP mask from PCD
-    CHAR16 *DefaultIpMask = PcdGetPtr (PcdRedfishServiceIpMask);
+    // Set default Redfish service port (default: 443 for HTTPS)
+    RedfishPortVar.Port = 443;
     Status = gRT->SetVariable (
-                    L"RedfishServiceIpMask",
+                    L"RedfishPort",
                     &gConfigDxeFormSetGuid,
                     EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
-                    StrSize (DefaultIpMask),
-                    DefaultIpMask
+                    sizeof (RedfishPortVar),
+                    &RedfishPortVar
                     );
     if (!EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_INFO, "%a: Set default RedfishServiceIpMask\n", __func__));
+      DEBUG ((DEBUG_INFO, "%a: Set default RedfishPort\n", __func__));
     }
   }
 
-  Size = sizeof (REDFISH_SERVICE_IP_PORT_VARSTORE_DATA);
-  Status = gRT->GetVariable (L"RedfishServiceIpPort",
+  // Initialize external Redfish service configuration variables
+  Size = sizeof (REDFISH_HOSTNAME_VARSTORE_DATA);
+  Status = gRT->GetVariable (L"RedfishHostname",
                              &gConfigDxeFormSetGuid,
-                             NULL, &Size, &RedfishIpPortVar);
+                             NULL, &Size, &RedfishHostnameVar);
   if (EFI_ERROR (Status)) {
-    // Set default IP port from PCD
-    CHAR16 *DefaultIpPort = PcdGetPtr (PcdRedfishServiceIpPort);
+    // Set default empty hostname
+    ZeroMem (&RedfishHostnameVar, sizeof (RedfishHostnameVar));
     Status = gRT->SetVariable (
-                    L"RedfishServiceIpPort",
+                    L"RedfishHostname",
                     &gConfigDxeFormSetGuid,
                     EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
-                    StrSize (DefaultIpPort),
-                    DefaultIpPort
+                    sizeof (RedfishHostnameVar),
+                    &RedfishHostnameVar
                     );
     if (!EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_INFO, "%a: Set default RedfishServiceIpPort\n", __func__));
+      DEBUG ((DEBUG_INFO, "%a: Set default RedfishHostname\n", __func__));
+    }
+  }
+
+  Size = sizeof (REDFISH_USERNAME_VARSTORE_DATA);
+  Status = gRT->GetVariable (L"RedfishUsername",
+                             &gConfigDxeFormSetGuid,
+                             NULL, &Size, &RedfishUsernameVar);
+  if (EFI_ERROR (Status)) {
+    // Set default empty username
+    ZeroMem (&RedfishUsernameVar, sizeof (RedfishUsernameVar));
+    Status = gRT->SetVariable (
+                    L"RedfishUsername",
+                    &gConfigDxeFormSetGuid,
+                    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                    sizeof (RedfishUsernameVar),
+                    &RedfishUsernameVar
+                    );
+    if (!EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_INFO, "%a: Set default RedfishUsername\n", __func__));
+    }
+  }
+
+  Size = sizeof (REDFISH_PASSWORD_VARSTORE_DATA);
+  Status = gRT->GetVariable (L"RedfishPassword",
+                             &gConfigDxeFormSetGuid,
+                             NULL, &Size, &RedfishPasswordVar);
+  if (EFI_ERROR (Status)) {
+    // Set default empty password
+    ZeroMem (&RedfishPasswordVar, sizeof (RedfishPasswordVar));
+    Status = gRT->SetVariable (
+                    L"RedfishPassword",
+                    &gConfigDxeFormSetGuid,
+                    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                    sizeof (RedfishPasswordVar),
+                    &RedfishPasswordVar
+                    );
+    if (!EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_INFO, "%a: Set default RedfishPassword\n", __func__));
+    }
+  }
+
+  Size = sizeof (REDFISH_USE_HTTPS_VARSTORE_DATA);
+  Status = gRT->GetVariable (L"RedfishUseHttps",
+                             &gConfigDxeFormSetGuid,
+                             NULL, &Size, &RedfishUseHttpsVar);
+  if (EFI_ERROR (Status)) {
+    // Set default to use HTTPS (secure)
+    RedfishUseHttpsVar.UseHttps = 1;
+    Status = gRT->SetVariable (
+                    L"RedfishUseHttps",
+                    &gConfigDxeFormSetGuid,
+                    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                    sizeof (RedfishUseHttpsVar),
+                    &RedfishUseHttpsVar
+                    );
+    if (!EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_INFO, "%a: Set default RedfishUseHttps\n", __func__));
+    }
+  }
+
+  Size = sizeof (REDFISH_SKIP_CERT_VARSTORE_DATA);
+  Status = gRT->GetVariable (L"RedfishSkipCert",
+                             &gConfigDxeFormSetGuid,
+                             NULL, &Size, &RedfishSkipCertVar);
+  if (EFI_ERROR (Status)) {
+    // Set default to verify certificates (secure)
+    RedfishSkipCertVar.SkipCertVerification = 0;
+    Status = gRT->SetVariable (
+                    L"RedfishSkipCert",
+                    &gConfigDxeFormSetGuid,
+                    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                    sizeof (RedfishSkipCertVar),
+                    &RedfishSkipCertVar
+                    );
+    if (!EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_INFO, "%a: Set default RedfishSkipCert\n", __func__));
     }
   }
 

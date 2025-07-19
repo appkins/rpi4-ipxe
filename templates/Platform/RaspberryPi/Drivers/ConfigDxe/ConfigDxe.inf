@@ -97,9 +97,6 @@
   gRaspberryPiTokenSpaceGuid.PcdXhciPci
   gRaspberryPiTokenSpaceGuid.PcdMiniUartClockRate
   gRaspberryPiTokenSpaceGuid.PcdXhciReload
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceIpAddress
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceIpMask
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceIpPort
 
 [Depex]
   gPcdProtocolGuid AND gRaspberryPiFirmwareProtocolGuid

@@ -126,19 +126,39 @@ formset
       name  = DisplayEnableSShot,
       guid  = CONFIGDXE_FORM_SET_GUID;
 
-    efivarstore REDFISH_SERVICE_IP_ADDRESS_VARSTORE_DATA,
+    efivarstore REDFISH_ENABLED_VARSTORE_DATA,
       attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
-      name  = RedfishServiceIpAddress,
+      name  = RedfishEnabled,
       guid  = CONFIGDXE_FORM_SET_GUID;
 
-    efivarstore REDFISH_SERVICE_IP_MASK_VARSTORE_DATA,
+    efivarstore REDFISH_PORT_VARSTORE_DATA,
       attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
-      name  = RedfishServiceIpMask,
+      name  = RedfishPort,
       guid  = CONFIGDXE_FORM_SET_GUID;
 
-    efivarstore REDFISH_SERVICE_IP_PORT_VARSTORE_DATA,
+    efivarstore REDFISH_HOSTNAME_VARSTORE_DATA,
       attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
-      name  = RedfishServiceIpPort,
+      name  = RedfishHostname,
+      guid  = CONFIGDXE_FORM_SET_GUID;
+
+    efivarstore REDFISH_USERNAME_VARSTORE_DATA,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = RedfishUsername,
+      guid  = CONFIGDXE_FORM_SET_GUID;
+
+    efivarstore REDFISH_PASSWORD_VARSTORE_DATA,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = RedfishPassword,
+      guid  = CONFIGDXE_FORM_SET_GUID;
+
+    efivarstore REDFISH_USE_HTTPS_VARSTORE_DATA,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = RedfishUseHttps,
+      guid  = CONFIGDXE_FORM_SET_GUID;
+
+    efivarstore REDFISH_SKIP_CERT_VARSTORE_DATA,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = RedfishSkipCert,
       guid  = CONFIGDXE_FORM_SET_GUID;
 
     form formid = 1,
@@ -166,7 +186,7 @@ formset
             help = STRING_TOKEN(STR_NULL_STRING);
 
         goto 0x1007,
-            prompt = STRING_TOKEN(STR_REDFISH_FORM_TITLE),
+            prompt = STRING_TOKEN(STR_NETWORK_FORM_TITLE),
             help = STRING_TOKEN(STR_NULL_STRING);
     endform;
 
@@ -408,31 +428,76 @@ formset
     endform;
 
     form formid = 0x1007,
-        title  = STRING_TOKEN(STR_REDFISH_FORM_TITLE);
-        subtitle text = STRING_TOKEN(STR_REDFISH_FORM_SUBTITLE);
+        title  = STRING_TOKEN(STR_NETWORK_FORM_TITLE);
+        subtitle text = STRING_TOKEN(STR_NETWORK_FORM_SUBTITLE);
 
-        string varid = RedfishServiceIpAddress.IpAddress,
-            prompt  = STRING_TOKEN(STR_REDFISH_IP_ADDRESS_PROMPT),
-            help    = STRING_TOKEN(STR_REDFISH_IP_ADDRESS_HELP),
+        subtitle text = STRING_TOKEN(STR_NULL_STRING);
+        text
+            help = STRING_TOKEN(STR_NULL_STRING),
+            text = STRING_TOKEN(STR_REDFISH_LOCAL_SERVICE_TITLE);
+
+        oneof varid = RedfishEnabled.Enabled,
+            prompt      = STRING_TOKEN(STR_REDFISH_ENABLED_PROMPT),
+            help        = STRING_TOKEN(STR_REDFISH_ENABLED_HELP),
+            flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
+            option text = STRING_TOKEN(STR_ENABLED), value = 1, flags = DEFAULT;
+            option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
+        endoneof;
+
+        numeric varid   = RedfishPort.Port,
+            prompt  = STRING_TOKEN(STR_REDFISH_PORT_PROMPT),
+            help    = STRING_TOKEN(STR_REDFISH_PORT_HELP),
+            flags   = DISPLAY_UINT_DEC | NUMERIC_SIZE_2 | INTERACTIVE | RESET_REQUIRED,
+            minimum = 1,
+            maximum = 65535,
+            default = 443,
+        endnumeric;
+
+        subtitle text = STRING_TOKEN(STR_NULL_STRING);
+        text
+            help = STRING_TOKEN(STR_NULL_STRING),
+            text = STRING_TOKEN(STR_REDFISH_EXTERNAL_SERVICE_TITLE);
+
+        string varid = RedfishHostname.Hostname,
+            prompt  = STRING_TOKEN(STR_REDFISH_HOSTNAME_PROMPT),
+            help    = STRING_TOKEN(STR_REDFISH_HOSTNAME_HELP),
             flags   = INTERACTIVE | RESET_REQUIRED,
-            minsize = 7,  // min "1.1.1.1"
-            maxsize = REDFISH_IP_STR_MAX_LEN,
+            minsize = 1,
+            maxsize = REDFISH_HOSTNAME_STR_MAX_LEN,
         endstring;
 
-        string varid = RedfishServiceIpMask.IpMask,
-            prompt  = STRING_TOKEN(STR_REDFISH_IP_MASK_PROMPT),
-            help    = STRING_TOKEN(STR_REDFISH_IP_MASK_HELP),
+        string varid = RedfishUsername.Username,
+            prompt  = STRING_TOKEN(STR_REDFISH_USERNAME_PROMPT),
+            help    = STRING_TOKEN(STR_REDFISH_USERNAME_HELP),
             flags   = INTERACTIVE | RESET_REQUIRED,
-            minsize = 7,  // min "1.1.1.1"
-            maxsize = REDFISH_IP_STR_MAX_LEN,
+            minsize = 1,
+            maxsize = REDFISH_USERNAME_STR_MAX_LEN,
         endstring;
 
-        string varid = RedfishServiceIpPort.Port,
-            prompt  = STRING_TOKEN(STR_REDFISH_IP_PORT_PROMPT),
-            help    = STRING_TOKEN(STR_REDFISH_IP_PORT_HELP),
+        password varid = RedfishPassword.Password,
+            prompt  = STRING_TOKEN(STR_REDFISH_PASSWORD_PROMPT),
+            help    = STRING_TOKEN(STR_REDFISH_PASSWORD_HELP),
             flags   = INTERACTIVE | RESET_REQUIRED,
-            minsize = 1,  // min "1"
-            maxsize = REDFISH_PORT_STR_MAX_LEN,
-        endstring;
+            minsize = 0,
+            maxsize = REDFISH_PASSWORD_STR_MAX_LEN,
+        endpassword;
+
+        oneof varid = RedfishUseHttps.UseHttps,
+            prompt      = STRING_TOKEN(STR_REDFISH_USE_HTTPS_PROMPT),
+            help        = STRING_TOKEN(STR_REDFISH_USE_HTTPS_HELP),
+            flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
+            option text = STRING_TOKEN(STR_ENABLED), value = 1, flags = DEFAULT;
+            option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
+        endoneof;
+
+        suppressif ideqval RedfishUseHttps.UseHttps == 0;
+          oneof varid = RedfishSkipCert.SkipCertVerification,
+              prompt      = STRING_TOKEN(STR_REDFISH_SKIP_CERT_PROMPT),
+              help        = STRING_TOKEN(STR_REDFISH_SKIP_CERT_HELP),
+              flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
+              option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = DEFAULT;
+              option text = STRING_TOKEN(STR_ENABLED), value = 1, flags = 0;
+          endoneof;
+        endif;
     endform;
 endformset;

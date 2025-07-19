@@ -483,6 +483,10 @@
   # Redfish Client configuration for early synchronization
   gEfiRedfishClientPkgTokenSpaceGuid.PcdRedfishServiceEtagSupported|TRUE
 
+  # Use default ReadyToBoot event for Redfish Feature Driver startup
+  # This ensures network infrastructure is ready before Redfish synchronization
+  # Default: gEfiEventReadyToBootGuid = {0x7CE88FB3, 0x4BD7, 0x4679, {0x87, 0xA8, 0xA8, 0xD8, 0xDE, 0xE5, 0x0D, 0x2B}}
+
   # Default service credentials (can be overridden via EFI variables)
   gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId|"root"
   gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword|"password123456"
@@ -613,11 +617,10 @@
 
 !if $(REDFISH_ENABLE) == TRUE
   #
-  # Redfish service IP configuration - configurable via UEFI UI
+  # Redfish Feature Driver startup event configuration for RPi4 platform
+  # Using default ReadyToBoot event for proper initialization timing
   #
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceIpAddress|L"RedfishServiceIpAddress"|gConfigDxeFormSetGuid|0x0|"192.168.1.100"
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceIpMask|L"RedfishServiceIpMask"|gConfigDxeFormSetGuid|0x0|"255.255.255.0"
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceIpPort|L"RedfishServiceIpPort"|gConfigDxeFormSetGuid|0x0|L"5000"
+  gEfiRedfishClientPkgTokenSpaceGuid.PcdEdkIIRedfishFeatureDriverStartupEventGuid|{0xB3, 0x8F, 0xE8, 0x7C, 0xD7, 0x4B, 0x79, 0x46, 0x87, 0xA8, 0xA8, 0xD8, 0xDE, 0xE5, 0x0D, 0x2B}
 !endif
 
 [PcdsDynamicDefault.common]

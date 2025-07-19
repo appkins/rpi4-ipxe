@@ -147,16 +147,33 @@
 #string STR_DEBUG_JTAG_DISABLE      #language en-US "Disable JTAG"
 
 /*
- * Redfish service configuration.
+ * Network Protocol configuration with Redfish schema mapping.
  */
-#string STR_REDFISH_FORM_TITLE       #language en-US "Redfish Service Configuration"
-#string STR_REDFISH_FORM_SUBTITLE    #language en-US "Configure remote Redfish service endpoint"
+#string STR_NETWORK_FORM_TITLE       #language en-US "Network Protocol Configuration"
+#string STR_NETWORK_FORM_SUBTITLE    #language en-US "Configure network services according to Redfish ManagerNetworkProtocol schema"
 
-#string STR_REDFISH_IP_ADDRESS_PROMPT  #language en-US "Redfish Service IP Address"
-#string STR_REDFISH_IP_ADDRESS_HELP    #language en-US "IP address of the remote Redfish service (e.g., 192.168.1.100)"
+#string STR_REDFISH_LOCAL_SERVICE_TITLE     #language en-US "Local Redfish Service"
+#string STR_REDFISH_ENABLED_PROMPT   #language x-UEFI-redfish-ManagerNetworkProtocol.v1_0_0  "/Redfish/ProtocolEnabled"  #language en-US "Redfish Service"
+#string STR_REDFISH_ENABLED_HELP     #language en-US "Enable or disable the Redfish management service"
 
-#string STR_REDFISH_IP_MASK_PROMPT     #language en-US "Redfish Service Subnet Mask"
-#string STR_REDFISH_IP_MASK_HELP       #language en-US "Subnet mask for Redfish service network (e.g., 255.255.255.0)"
+#string STR_REDFISH_PORT_PROMPT      #language x-UEFI-redfish-ManagerNetworkProtocol.v1_0_0  "/Redfish/Port"  #language en-US "Redfish Port"
+#string STR_REDFISH_PORT_HELP        #language en-US "TCP port for Redfish service (default: 443 for HTTPS, 80 for HTTP)"
 
-#string STR_REDFISH_IP_PORT_PROMPT     #language en-US "Redfish Service Port"
-#string STR_REDFISH_IP_PORT_HELP       #language en-US "TCP port for Redfish service (default: 5000)"
+#string STR_REDFISH_EXTERNAL_SERVICE_TITLE  #language en-US "External Redfish Service Connection"
+#string STR_REDFISH_HOSTNAME_PROMPT  #language en-US "Redfish Service Hostname/IP"
+#string STR_REDFISH_HOSTNAME_HELP    #language en-US "Hostname or IP address of external Redfish service (e.g., 192.168.1.100 or redfish.example.com)"
+
+#string STR_REDFISH_USERNAME_PROMPT  #language en-US "Username"
+#string STR_REDFISH_USERNAME_HELP    #language en-US "Username for Redfish service authentication"
+
+#string STR_REDFISH_PASSWORD_PROMPT  #language en-US "Password"
+#string STR_REDFISH_PASSWORD_HELP    #language en-US "Password for Redfish service authentication"
+
+#string STR_REDFISH_USE_HTTPS_PROMPT #language en-US "Use HTTPS"
+#string STR_REDFISH_USE_HTTPS_HELP   #language en-US "Use HTTPS for secure communication (recommended)"
+
+#string STR_REDFISH_SKIP_CERT_PROMPT #language en-US "Skip Certificate Verification"
+#string STR_REDFISH_SKIP_CERT_HELP   #language en-US "Skip SSL certificate verification (insecure, for testing only)"
+
+#string STR_ENABLED                  #language en-US "Enabled"
+#string STR_DISABLED                 #language en-US "Disabled"
