@@ -110,8 +110,9 @@ $(IPXE_LOCAL_DIR)/general.h: $(IPXE_LOCAL_DIR)
 	@echo "#define DOWNLOAD_PROTO_NFS" >> $@
 	@echo "#define DOWNLOAD_PROTO_FILE" >> $@
 
-$(IPXE_LOCAL_DIR)/bin-arm64-efi/snp.efi: $(IPXE_LOCAL_DIR)/general.h
+$(IPXE_DIR)/bin-arm64-efi/snp.efi: $(IPXE_LOCAL_DIR)/general.h
 	@echo "Building iPXE SNP driver..."
+	export C_INCLUDE_PATH="/opt/homebrew/opt/aarch64-elf-gcc/lib/gcc/aarch64-elf/15.1.0/include" && \
 	$(MAKE) -C $(IPXE_DIR) \
 		bin-arm64-efi/snp.efi \
 		-j4 \
@@ -119,7 +120,7 @@ $(IPXE_LOCAL_DIR)/bin-arm64-efi/snp.efi: $(IPXE_LOCAL_DIR)/general.h
 		CROSS=$(GCC5_AARCH64_PREFIX)
 
 .PHONY: setup-ipxe
-setup-ipxe: $(IPXE_LOCAL_DIR)/bin-arm64-efi/snp.efi
+setup-ipxe: $(IPXE_DIR)/bin-arm64-efi/snp.efi
 
 # Check for required tools
 .PHONY: check-deps
