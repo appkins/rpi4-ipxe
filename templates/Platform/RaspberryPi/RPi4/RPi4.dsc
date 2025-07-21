@@ -42,7 +42,8 @@
   # Redfish client definition
   #
   DEFINE REDFISH_CLIENT               = TRUE
-  DEFINE REDFISH_CLIENT_ALL_AUTOGENED = TRUE
+  DEFINE REDFISH_CLIENT_ALL_AUTOGENED = FALSE
+
 
 !ifndef TFA_BUILD_ARTIFACTS
   #
@@ -182,10 +183,11 @@
   IpmiCommandLib|MdeModulePkg/Library/BaseIpmiCommandLibNull/BaseIpmiCommandLibNull.inf
   # Use EmulatorPkg libraries for enhanced variable-based Redfish configuration
   # These provide better integration with RedfishPlatformConfig.efi and runtime configuration
+  # RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceLibNull/PlatformHostInterfaceLibNull.inf
+  # RedfishPlatformCredentialLib|RedfishPkg/Library/PlatformCredentialLibNull/PlatformCredentialLibNull.inf
   RedfishPlatformHostInterfaceLib|Platform/RaspberryPi/Library/RedfishPlatformHostInterfaceLib/RedfishPlatformHostInterfaceLib.inf
   RedfishPlatformCredentialLib|Platform/RaspberryPi/Library/RedfishPlatformCredentialLib/RedfishPlatformCredentialLib.inf
   RedfishPlatformWantedDeviceLib|RedfishPkg/Library/RedfishPlatformWantedDeviceLibNull/RedfishPlatformWantedDeviceLibNull.inf
-  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf
   #
   # PCI dependencies
   #
@@ -482,24 +484,20 @@
   # Network device path for Redfish service binding (will be auto-detected at runtime)
   # This placeholder will be updated by RedfishPlatformConfig.efi or automatic detection
   #
-  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceDevicePath.DevicePath|{DEVICE_PATH("MAC(000000000000,0x1)")}
   gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceAccessModeInBand|False
   gEfiRedfishPkgTokenSpaceGuid.PcdRedfishDiscoverAccessModeInBand|False
-
-  # Platform-specific Redfish service control
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceStopIfSecureBootDisabled|False
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceStopIfExitbootService|False
 
   # Redfish Client configuration for early synchronization
   gEfiRedfishClientPkgTokenSpaceGuid.PcdRedfishServiceEtagSupported|True
 
   # Use default ReadyToBoot event for Redfish Feature Driver startup
   # This ensures network infrastructure is ready before Redfish synchronization
-  # Default: gEfiEventReadyToBootGuid = {0x7CE88FB3, 0x4BD7, 0x4679, {0x87, 0xA8, 0xA8, 0xD8, 0xDE, 0xE5, 0x0D, 0x2B}}
-
-  # Default service credentials (can be overridden via EFI variables)
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId|"root"
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword|"password123456"
+  # gEfiEventReadyToBootGuid (Default): {0xB3, 0x8F, 0xE8, 0x7C, 0xD7, 0x4B, 0x79, 0x46, 0x87, 0xA8, 0xA8, 0xD8, 0xDE, 0xE5, 0x0D, 0x2B}
+  # gEfiEventAfterReadyToBootGuid:      {0xAD, 0x00, 0x2A, 0x3A, 0xB9, 0x98, 0xDF, 0x4C, 0xA4, 0x78, 0x70, 0x27, 0x77, 0xF1, 0xC1, 0x0B}
+  # gEfiEndOfDxeEventGroupGuid:         {0x7A, 0x96, 0xCE, 0x02, 0x7E, 0xDD, 0xFC, 0x4F, 0x9E, 0xE7, 0x81, 0x0C, 0xF0, 0x47, 0x08, 0x80}
+  # gEfiEventExitBootServicesGuid:      {0x55, 0xF0, 0xAB, 0x27, 0xB8, 0xB1, 0x26, 0x4C, 0x80, 0x48, 0x74, 0x8F, 0x37, 0xBA, 0xA2, 0xDF}
+  # gEfiRedfishClientPkgTokenSpaceGuid.PcdEdkIIRedfishFeatureDriverStartupEventGuid|gEfiEventExitBootServicesGuid
+  # gEfiRedfishClientPkgTokenSpaceGuid.PcdEdkIIRedfishFeatureDriverStartupEventGuid|{0xB3, 0x8F, 0xE8, 0x7C, 0xD7, 0x4B, 0x79, 0x46, 0x87, 0xA8, 0xA8, 0xD8, 0xDE, 0xE5, 0x0D, 0x2B}
 
   # Network Configuration for Redfish access
   gEfiNetworkPkgTokenSpaceGuid.PcdAllowHttpConnections|True
@@ -522,10 +520,25 @@
   #   0x00000001  Enable building Redfish Attribute Registry menu path.
   #   0x00000002  Allow suppressed HII option to be exposed on Redfish.
   gEfiRedfishPkgTokenSpaceGuid.PcdRedfishPlatformConfigFeatureProperty|1
+
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishDisableBootstrapCredentialService|True
 !endif
 
 [PcdsPatchableInModule]
   gEfiMdeModulePkgTokenSpaceGuid.PcdSerialClockRate|500000000
+
+!if $(REDFISH_ENABLE) == TRUE
+  #
+  # Network device path for Redfish service binding (will be auto-detected at runtime)
+  # This placeholder will be updated by RedfishPlatformConfig.efi or automatic detection
+  #
+  # gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServiceUuid|L"a0cec817-f666-0000-0000-000000000000"
+  # gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceDevicePath.DevicePath|{DEVICE_PATH("MAC(a0cec817f666,0x1)")}
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServicePort|5000
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishHostName|"10.0.198.24"
+  # gEfiRedfishPkgTokenSpaceGuid.PcdRedfishSendReceiveTimeout|5000
+
+!endif
 
 [PcdsDynamicHii.common.DEFAULT]
 
@@ -608,6 +621,15 @@
   # 1  - Yes, DT has Reload
   #
   gRaspberryPiTokenSpaceGuid.PcdXhciReload|L"XhciReload"|gConfigDxeFormSetGuid|0x0|0
+  #
+  # Redfish service configuration.
+  #
+  # gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId|L"RedfishServiceUserId"|gConfigDxeFormSetGuid|0x0|gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId
+  # gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword|L"RedfishServicePassword"|gConfigDxeFormSetGuid|0x0|gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword
+  # gRaspberryPiTokenSpaceGuid.PcdRedfishServiceHost|L"RedfishServiceHost"|gConfigDxeFormSetGuid|0x0|gRaspberryPiTokenSpaceGuid.PcdRedfishServiceHost
+  # gRaspberryPiTokenSpaceGuid.PcdRedfishServicePort|L"RedfishServicePort"|gConfigDxeFormSetGuid|0x0|gRaspberryPiTokenSpaceGuid.PcdRedfishServicePort
+  # gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUseHttps|L"RedfishServiceUseHttps"|gConfigDxeFormSetGuid|0x0|gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUseHttps
+  # gRaspberryPiTokenSpaceGuid.PcdRedfishServiceSkipCertVerification|L"RedfishServiceSkipCertVerification"|gConfigDxeFormSetGuid|0x0|gRaspberryPiTokenSpaceGuid.PcdRedfishServiceSkipCertVerification
 
   #
   # Common UEFI ones.

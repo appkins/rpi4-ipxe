@@ -70,11 +70,11 @@ PACKAGES_PATH := $(WORKSPACE)/edk2:$(WORKSPACE)/platforms:$(WORKSPACE)/non-osi:$
 BUILD_FLAGS := -D NETWORK_ALLOW_HTTP_CONNECTIONS=TRUE \
                -D REDFISH_ENABLE=TRUE \
                -D REDFISH_CLIENT=TRUE \
-							 -D NDEBUG=TRUE \
                -D SECURE_BOOT_ENABLE=TRUE \
                -D INCLUDE_TFTP_COMMAND=TRUE \
                -D NETWORK_ISCSI_ENABLE=TRUE \
-               -D SMC_PCI_SUPPORT=1
+               -D SMC_PCI_SUPPORT=1 \
+			   -D NDEBUG=TRUE
 TLS_DISABLE_FLAGS := -D NETWORK_TLS_ENABLE=FALSE \
                      -D NETWORK_ALLOW_HTTP_CONNECTIONS=TRUE
 DEFAULT_KEYS := -D DEFAULT_KEYS=TRUE \
@@ -291,11 +291,8 @@ $(FIRMWARE_FILE): setup-edk2 apply-templates $(KEY_FILES)
 		-p platforms/Platform/RaspberryPi/RPi4/RPi4.dsc \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor=L"$(PROJECT_URL)" \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString=L"UEFI Firmware $(VERSION)" \
-		--pcd gEfiRedfishClientPkgTokenSpaceGuid.PcdRedfishServiceEtagSupported=TRUE \
-		--pcd gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId="root" \
-		--pcd gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword="password123456" \
-		--pcd gEfiNetworkPkgTokenSpaceGuid.PcdAllowHttpConnections=TRUE \
-		--pcd gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServiceContentEncoding="None" \
+		--pcd gEfiRedfishPkgTokenSpaceGuid.PcdRedfishHostName="10.0.198.24" \
+		--pcd gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServicePort=5000 \
 		$(BUILD_FLAGS) $(DEFAULT_KEYS) $(TLS_DISABLE_FLAGS)
 
 # Copy firmware to root directory

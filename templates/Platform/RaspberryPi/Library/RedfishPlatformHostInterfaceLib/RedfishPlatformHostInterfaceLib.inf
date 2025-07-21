@@ -39,10 +39,12 @@
   UefiBootServicesTableLib
 
 [Pcd]
-  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceDevicePath         ## CONSUMES
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceHost                       ## CONSUMES
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServicePort                       ## CONSUMES
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUseHttps                   ## CONSUMES
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishHostName                ## CONSUMED
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServiceUuid             ## CONSUMED
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServicePort             ## CONSUMED
 
-[Guids]
-  gRaspberryPiRedfishServiceGuid
+[Protocols]
+  gRaspberryPiFirmwareProtocolGuid                ## CONSUMES
+
+[Depex]
+  gRaspberryPiFirmwareProtocolGuid

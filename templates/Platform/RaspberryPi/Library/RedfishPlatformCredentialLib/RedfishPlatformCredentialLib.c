@@ -18,7 +18,6 @@
 #include <Guid/GlobalVariable.h>
 #include <Guid/ImageAuthentication.h>
 
-BOOLEAN  mSecureBootDisabled = FALSE;
 BOOLEAN  mStopRedfishService = FALSE;
 
 EFI_STATUS
@@ -124,14 +123,6 @@ LibCredentialGetAuthInfo (
     return EFI_ACCESS_DENIED;
   }
 
-  if (mSecureBootDisabled) {
-    Status = LibStopRedfishService (This, ServiceStopTypeSecureBootDisabled);
-    if (EFI_ERROR (Status) && (Status != EFI_UNSUPPORTED)) {
-      DEBUG ((DEBUG_ERROR, "SecureBoot has been disabled, but failed to stop RedfishService - %r\n", Status));
-      return Status;
-    }
-  }
-
   Status = GetRedfishCredential (
              AuthMethod,
              UserId,
@@ -172,42 +163,8 @@ LibStopRedfishService (
     return EFI_INVALID_PARAMETER;
   }
 
-  if (ServiceStopType == ServiceStopTypeSecureBootDisabled) {
-    //
-    // Check platform PCD to determine the action for stopping
-    // Redfish service due to secure boot is disabled.
-    //
-    if (!PcdGetBool (PcdRedfishServiceStopIfSecureBootDisabled)) {
-      return EFI_UNSUPPORTED;
-    } else {
-      //
-      // Check Secure Boot status and lock Redfish service if Secure Boot is disabled.
-      //
-      Status = GetVariable2 (EFI_SECURE_BOOT_MODE_NAME, &gEfiGlobalVariableGuid, (VOID **)&SecureBootVar, NULL);
-      if (EFI_ERROR (Status) || (*SecureBootVar != SECURE_BOOT_MODE_ENABLE)) {
-        //
-        // Secure Boot is disabled
-        //
-        mSecureBootDisabled = TRUE;
-        mStopRedfishService = TRUE;
-        DEBUG ((DEBUG_INFO, "EFI Redfish service is stopped due to SecureBoot is disabled!!\n"));
-      }
-    }
-  } else if (ServiceStopType == ServiceStopTypeExitBootService) {
-    //
-    // Check platform PCD to determine the action for stopping
-    // Redfish service due to exit boot service.
-    //
-    if (PcdGetBool (PcdRedfishServiceStopIfExitbootService)) {
-      return EFI_UNSUPPORTED;
-    } else {
-      mStopRedfishService = TRUE;
-      DEBUG ((DEBUG_INFO, "EFI Redfish service is stopped due to Exit Boot Service!!\n"));
-    }
-  } else {
-    mStopRedfishService = TRUE;
-    DEBUG ((DEBUG_INFO, "EFI Redfish service is stopped without Redfish service stop type!!\n"));
-  }
+  mStopRedfishService = TRUE;
+  DEBUG ((DEBUG_INFO, "EFI Redfish service is stopped without Redfish service stop type!!\n"));
 
   return EFI_SUCCESS;
 }

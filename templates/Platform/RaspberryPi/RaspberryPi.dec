@@ -25,7 +25,6 @@
 [Guids]
   gRaspberryPiTokenSpaceGuid     = {0xCD7CC258, 0x31DB, 0x11E6, {0x9F, 0xD3, 0x63, 0xB0, 0xB8, 0xEE, 0xD6, 0xB5}}
   gConfigDxeFormSetGuid          = {0xCD7CC258, 0x31DB, 0x22E6, {0x9F, 0x22, 0x63, 0xB0, 0xB8, 0xEE, 0xD6, 0xB5}}
-  gRaspberryPiRedfishServiceGuid = { 0x4D9E28C2, 0x8BC5, 0x4D9E, { 0xA7, 0x3C, 0x1E, 0xC4, 0x35, 0x98, 0x76, 0x42 } }
 
 [PcdsFixedAtBuild.common]
   #
@@ -51,20 +50,6 @@
   gRaspberryPiTokenSpaceGuid.PcdGicPmuIrq2|0x0|UINT32|0x00000035
   gRaspberryPiTokenSpaceGuid.PcdGicPmuIrq3|0x0|UINT32|0x00000036
 
-  ## Platform level Redfish Service control PCD similar to EmulatorPkg
-  # These PCDs are used to control the Redfish service behavior on RPi4
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceStopIfSecureBootDisabled|FALSE|BOOLEAN|0x00000040
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceStopIfExitbootService|FALSE|BOOLEAN|0x00000041
-
-  ## External Redfish Service Configuration PCDs
-  # These PCDs define the external Redfish service that this platform will connect to
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId|"admin"|VOID*|0x00000042
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword|"password123456"|VOID*|0x00000043
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceHost|""|VOID*|0x00000044
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServicePort|443|UINT16|0x00000045
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUseHttps|TRUE|BOOLEAN|0x00000046
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceSkipCertVerification|FALSE|BOOLEAN|0x00000047
-
 [PcdsFixedAtBuild, PcdsPatchableInModule, PcdsDynamic, PcdsDynamicEx]
   gRaspberryPiTokenSpaceGuid.PcdCpuClock|0|UINT32|0x0000000d
   gRaspberryPiTokenSpaceGuid.PcdSdIsArasan|0|UINT32|0x0000000e
@@ -88,3 +73,5 @@
   gRaspberryPiTokenSpaceGuid.PcdXhciPci|0|UINT32|0x00000022
   gRaspberryPiTokenSpaceGuid.PcdMiniUartClockRate|0|UINT32|0x00000023
   gRaspberryPiTokenSpaceGuid.PcdXhciReload|0|UINT32|0x00000024
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId|"admin"|VOID*|0x00000025
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword|"pwd123456"|VOID*|0x00000026

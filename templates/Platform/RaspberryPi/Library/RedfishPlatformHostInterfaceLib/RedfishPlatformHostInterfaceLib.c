@@ -21,11 +21,14 @@
 #include <Library/UefiLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/PcdLib.h>
+#include <Protocol/RpiFirmware.h>
 
 #include <Pcd/RestExServiceDevicePath.h>
 
 #define VERBOSE_COLUME_SIZE  (16)
 #define REDFISH_HOSTNAME_STR_STORAGE_SIZE  64
+
+STATIC RASPBERRY_PI_FIRMWARE_PROTOCOL *mFwProtocol;
 
 REDFISH_OVER_IP_PROTOCOL_DATA  *mRedfishOverIpProtocolData;
 UINT8                          mRedfishProtocolDataSize;
@@ -43,43 +46,27 @@ GetMacAddressInformation (
   OUT EFI_MAC_ADDRESS  *MacAddress
   )
 {
-  REST_EX_SERVICE_DEVICE_PATH_DATA  *RestExServiceDevicePathData;
-  EFI_DEVICE_PATH_PROTOCOL          *RestExServiceDevicePath;
-  MAC_ADDR_DEVICE_PATH              *MacAddressDevicePath;
+  EFI_STATUS Status;
 
-  RestExServiceDevicePathData = NULL;
-  RestExServiceDevicePath     = NULL;
-
-  RestExServiceDevicePathData = (REST_EX_SERVICE_DEVICE_PATH_DATA *)PcdGetPtr (PcdRedfishRestExServiceDevicePath);
-  if ((RestExServiceDevicePathData == NULL) ||
-      (RestExServiceDevicePathData->DevicePathNum == 0) ||
-      !IsDevicePathValid (RestExServiceDevicePathData->DevicePath, 0))
-  {
-    return EFI_NOT_FOUND;
+  if (MacAddress == NULL) {
+    return EFI_INVALID_PARAMETER;
   }
 
-  RestExServiceDevicePath = RestExServiceDevicePathData->DevicePath;
-  if (RestExServiceDevicePathData->DevicePathMatchMode != DEVICE_PATH_MATCH_MAC_NODE) {
-    return EFI_NOT_FOUND;
+  if (mFwProtocol == NULL) {
+    DEBUG ((DEBUG_ERROR, "RedfishPlatformHostInterfaceLib: Firmware protocol not available\n"));
+    return EFI_NOT_READY;
   }
 
   //
-  // Find Mac DevicePath Node.
+  // Get the MAC address from the firmware.
   //
-  while (!IsDevicePathEnd (RestExServiceDevicePath) &&
-         ((DevicePathType (RestExServiceDevicePath) != MESSAGING_DEVICE_PATH) ||
-          (DevicePathSubType (RestExServiceDevicePath) != MSG_MAC_ADDR_DP)))
-  {
-    RestExServiceDevicePath = NextDevicePathNode (RestExServiceDevicePath);
+  Status = mFwProtocol->GetMacAddress (MacAddress->Addr);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "RedfishPlatformHostInterfaceLib: Failed to get MAC address - %r\n", Status));
+    return EFI_NOT_FOUND;
   }
 
-  if (!IsDevicePathEnd (RestExServiceDevicePath)) {
-    MacAddressDevicePath = (MAC_ADDR_DEVICE_PATH *)RestExServiceDevicePath;
-    CopyMem ((VOID *)MacAddress, (VOID *)&MacAddressDevicePath->MacAddress, sizeof (EFI_MAC_ADDRESS));
-    return EFI_SUCCESS;
-  }
-
-  return EFI_NOT_FOUND;
+  return EFI_SUCCESS;
 }
 
 /**
@@ -186,14 +173,13 @@ GetRedfishRecordFromConfiguration (
   CHAR8    RedfishHostName[REDFISH_HOSTNAME_STR_STORAGE_SIZE];
   UINT8    HostNameSize;
   UINT16   RedfishServicePort;
-  BOOLEAN  UseHttps;
 
   if ((RedfishProtocolData == NULL) || (RedfishProtocolDataSize == NULL)) {
     return EFI_INVALID_PARAMETER;
   }
 
   // Get hostname from PCD
-  HostnamePtr = (CHAR8 *)PcdGetPtr (PcdRedfishServiceHost);
+  HostnamePtr = (CHAR8 *)PcdGetPtr (PcdRedfishHostName);
   if (HostnamePtr == NULL || AsciiStrLen (HostnamePtr) == 0) {
     DEBUG ((DEBUG_ERROR, "RedfishPlatformHostInterfaceLib: No hostname configured in PCD\n"));
     return EFI_NOT_FOUND;
@@ -202,13 +188,8 @@ GetRedfishRecordFromConfiguration (
   // Get port from PCD
   RedfishServicePort = PcdGet16 (PcdRedfishServicePort);
   if (RedfishServicePort == 0) {
-    // Use default ports based on HTTPS setting
-    UseHttps = PcdGetBool (PcdRedfishServiceUseHttps);
-    RedfishServicePort = UseHttps ? 443 : 80;
+    RedfishServicePort = 5000;
   }
-
-  // Get HTTPS setting from PCD
-  UseHttps = PcdGetBool (PcdRedfishServiceUseHttps);
 
   // Copy hostname
   AsciiStrCpyS (RedfishHostName, sizeof(RedfishHostName), HostnamePtr);
@@ -227,8 +208,12 @@ GetRedfishRecordFromConfiguration (
     return EFI_OUT_OF_RESOURCES;
   }
 
+  // Service UUID
+  if (StrLen ((CONST CHAR16 *)PcdGetPtr (PcdRedfishServiceUuid)) != 0) {
+    StrToGuid ((CONST CHAR16 *)PcdGetPtr (PcdRedfishServiceUuid), &(*RedfishProtocolData)->ServiceUuid);
+  }
+
   // Fill in the protocol data
-  CopyGuid (&(*RedfishProtocolData)->ServiceUuid, &gRaspberryPiRedfishServiceGuid);  // Host configuration - use DHCP for local interface
   (*RedfishProtocolData)->HostIpAssignmentType = 0;  // DHCP
   (*RedfishProtocolData)->HostIpAddressFormat  = 1;  // IPv4
 
@@ -244,8 +229,8 @@ GetRedfishRecordFromConfiguration (
   (*RedfishProtocolData)->RedfishServiceHostnameLength = HostNameSize;
   AsciiStrCpyS ((CHAR8 *)((*RedfishProtocolData)->RedfishServiceHostname), HostNameSize, RedfishHostName);
 
-  DEBUG ((DEBUG_INFO, "RedfishPlatformHostInterfaceLib: Configured external service %a:%d (HTTPS: %s)\n",
-          RedfishHostName, RedfishServicePort, UseHttps ? L"Yes" : L"No"));
+  DEBUG ((DEBUG_INFO, "RedfishPlatformHostInterfaceLib: Configured external service %a:%d\n",
+          RedfishHostName, RedfishServicePort));
 
   return EFI_SUCCESS;
 }
@@ -268,6 +253,17 @@ RedfishPlatformHostInterfaceConstructor (
   )
 {
   EFI_STATUS  Status;
+
+  // Locate the Raspberry Pi firmware protocol for MAC address retrieval
+  Status = gBS->LocateProtocol (
+                  &gRaspberryPiFirmwareProtocolGuid,
+                  NULL,
+                  (VOID **)&mFwProtocol
+                  );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_WARN, "RedfishPlatformHostInterfaceLib: Raspberry Pi firmware protocol not found - %r\n", Status));
+    mFwProtocol = NULL;
+  }
 
   Status = GetRedfishRecordFromConfiguration (&mRedfishOverIpProtocolData, &mRedfishProtocolDataSize);
   DEBUG ((DEBUG_INFO, "%a: GetRedfishRecordFromConfiguration() - %r\n", __func__, Status));
@@ -312,5 +308,44 @@ RedfishPlatformHostInterfaceSerialNumber (
   OUT CHAR8  **SerialNumber
   )
 {
-  return EFI_UNSUPPORTED;
+  EFI_STATUS Status;
+  UINT64     Serial;
+  CHAR8      *SerialString;
+  UINTN      SerialStringSize;
+
+  if (SerialNumber == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (mFwProtocol == NULL) {
+    DEBUG ((DEBUG_ERROR, "RedfishPlatformHostInterfaceLib: Firmware protocol not available\n"));
+    return EFI_NOT_READY;
+  }
+
+  //
+  // Get the serial number from the firmware as UINT64
+  //
+  Status = mFwProtocol->GetSerial (&Serial);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "Failed to get board serial: %r\n", Status));
+    return Status;
+  }
+
+  //
+  // Convert UINT64 serial to ASCII string
+  // Allocate buffer for "0x" + 16 hex digits + null terminator
+  //
+  SerialStringSize = 19; // "0x" + 16 hex chars + '\0'
+  SerialString = AllocateZeroPool (SerialStringSize);
+  if (SerialString == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  //
+  // Format as hexadecimal string
+  //
+  AsciiSPrint (SerialString, SerialStringSize, "0x%016lX", Serial);
+
+  *SerialNumber = SerialString;
+  return EFI_SUCCESS;
 }

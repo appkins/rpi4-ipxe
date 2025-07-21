@@ -225,6 +225,12 @@ READ_LOCK_STATUS   = TRUE
   INF MdeModulePkg/Universal/EbcDxe/EbcDxe.inf
 
   #
+  # EFI Redfish drivers
+  #
+!include RedfishPkg/Redfish.fdf.inc
+!include RedfishClientPkg/RedfishClient.fdf.inc
+
+  #
   # FAT filesystem + GPT/MBR partitioning
   #
   INF MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
@@ -319,7 +325,6 @@ READ_LOCK_STATUS   = TRUE
   # Pi logo (splash screen)
   #
   INF Platform/RaspberryPi/Drivers/LogoDxe/LogoDxe.inf
-!include RedfishPkg/Redfish.fdf.inc
 
 [FV.FVMAIN_COMPACT]
 FvAlignment        = 16
