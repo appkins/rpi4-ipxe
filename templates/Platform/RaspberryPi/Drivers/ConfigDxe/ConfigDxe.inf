@@ -99,6 +99,10 @@
   gRaspberryPiTokenSpaceGuid.PcdXhciReload
   gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId
   gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceHost
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServicePort
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUseHttps
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceSkipCertVerification
 
 [Depex]
   gPcdProtocolGuid AND gRaspberryPiFirmwareProtocolGuid

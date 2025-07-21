@@ -148,24 +148,6 @@ typedef struct {
 } MMC_EMMC_DMA_VARSTORE_DATA;
 
 /*
- * Network Protocol configuration structures aligned with Redfish ManagerNetworkProtocol schema
- */
-typedef struct {
-  /*
-   * 0 - Redfish service disabled
-   * 1 - Redfish service enabled
-   */
-  UINT8 Enabled;
-} REDFISH_ENABLED_VARSTORE_DATA;
-
-typedef struct {
-  /*
-   * TCP port for Redfish service (default: 443 for HTTPS)
-   */
-  UINT16 Port;
-} REDFISH_PORT_VARSTORE_DATA;
-
-/*
  * External Redfish Service configuration for client connectivity
  */
 #define REDFISH_HOSTNAME_STR_MAX_LEN      64
@@ -185,6 +167,13 @@ typedef struct {
 typedef struct {
   CHAR16 Password[REDFISH_PASSWORD_STR_STORAGE_SIZE];
 } REDFISH_PASSWORD_VARSTORE_DATA;
+
+typedef struct {
+  /*
+   * TCP port for external Redfish service
+   */
+  UINT16 Port;
+} REDFISH_PORT_VARSTORE_DATA;
 
 typedef struct {
   /*

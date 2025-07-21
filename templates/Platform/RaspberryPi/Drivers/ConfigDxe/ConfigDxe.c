@@ -426,60 +426,25 @@ SetupVariables (
    * Initialize Redfish service configuration variables
    * Following the same pattern as other configuration variables
    */
-  REDFISH_ENABLED_VARSTORE_DATA RedfishEnabledVar;
-  REDFISH_PORT_VARSTORE_DATA RedfishPortVar;
   REDFISH_HOSTNAME_VARSTORE_DATA RedfishHostnameVar;
   REDFISH_USERNAME_VARSTORE_DATA RedfishUsernameVar;
   REDFISH_PASSWORD_VARSTORE_DATA RedfishPasswordVar;
+  REDFISH_PORT_VARSTORE_DATA RedfishPortVar;
   REDFISH_USE_HTTPS_VARSTORE_DATA RedfishUseHttpsVar;
   REDFISH_SKIP_CERT_VARSTORE_DATA RedfishSkipCertVar;
 
-  Size = sizeof (REDFISH_ENABLED_VARSTORE_DATA);
-  Status = gRT->GetVariable (L"RedfishEnabled",
-                             &gConfigDxeFormSetGuid,
-                             NULL, &Size, &RedfishEnabledVar);
-  if (EFI_ERROR (Status)) {
-    // Set default Redfish service enabled state (default: disabled)
-    RedfishEnabledVar.Enabled = 0;
-    Status = gRT->SetVariable (
-                    L"RedfishEnabled",
-                    &gConfigDxeFormSetGuid,
-                    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
-                    sizeof (RedfishEnabledVar),
-                    &RedfishEnabledVar
-                    );
-    if (!EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_INFO, "%a: Set default RedfishEnabled\n", __func__));
-    }
-  }
-
-  Size = sizeof (REDFISH_PORT_VARSTORE_DATA);
-  Status = gRT->GetVariable (L"RedfishPort",
-                             &gConfigDxeFormSetGuid,
-                             NULL, &Size, &RedfishPortVar);
-  if (EFI_ERROR (Status)) {
-    // Set default Redfish service port (default: 443 for HTTPS)
-    RedfishPortVar.Port = 443;
-    Status = gRT->SetVariable (
-                    L"RedfishPort",
-                    &gConfigDxeFormSetGuid,
-                    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
-                    sizeof (RedfishPortVar),
-                    &RedfishPortVar
-                    );
-    if (!EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_INFO, "%a: Set default RedfishPort\n", __func__));
-    }
-  }
-
-  // Initialize external Redfish service configuration variables
+  // Initialize external Redfish service hostname
   Size = sizeof (REDFISH_HOSTNAME_VARSTORE_DATA);
   Status = gRT->GetVariable (L"RedfishHostname",
                              &gConfigDxeFormSetGuid,
                              NULL, &Size, &RedfishHostnameVar);
   if (EFI_ERROR (Status)) {
-    // Set default empty hostname
+    // Set default hostname from PCD or empty
     ZeroMem (&RedfishHostnameVar, sizeof (RedfishHostnameVar));
+    // Convert ASCII PCD to CHAR16 for variable storage
+    AsciiStrToUnicodeStrS ((CHAR8 *)PcdGetPtr (PcdRedfishServiceHost),
+                           RedfishHostnameVar.Hostname,
+                           REDFISH_HOSTNAME_STR_STORAGE_SIZE);
     Status = gRT->SetVariable (
                     L"RedfishHostname",
                     &gConfigDxeFormSetGuid,
@@ -492,13 +457,38 @@ SetupVariables (
     }
   }
 
+  // Initialize external Redfish service port
+  Size = sizeof (REDFISH_PORT_VARSTORE_DATA);
+  Status = gRT->GetVariable (L"RedfishPort",
+                             &gConfigDxeFormSetGuid,
+                             NULL, &Size, &RedfishPortVar);
+  if (EFI_ERROR (Status)) {
+    // Set default port from PCD
+    RedfishPortVar.Port = PcdGet16 (PcdRedfishServicePort);
+    Status = gRT->SetVariable (
+                    L"RedfishPort",
+                    &gConfigDxeFormSetGuid,
+                    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                    sizeof (RedfishPortVar),
+                    &RedfishPortVar
+                    );
+    if (!EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_INFO, "%a: Set default RedfishPort\n", __func__));
+    }
+  }
+
+  // Initialize external Redfish service username
   Size = sizeof (REDFISH_USERNAME_VARSTORE_DATA);
   Status = gRT->GetVariable (L"RedfishUsername",
                              &gConfigDxeFormSetGuid,
                              NULL, &Size, &RedfishUsernameVar);
   if (EFI_ERROR (Status)) {
-    // Set default empty username
+    // Set default username from PCD
     ZeroMem (&RedfishUsernameVar, sizeof (RedfishUsernameVar));
+    // Convert ASCII PCD to CHAR16 for variable storage
+    AsciiStrToUnicodeStrS ((CHAR8 *)PcdGetPtr (PcdRedfishServiceUserId),
+                           RedfishUsernameVar.Username,
+                           REDFISH_USERNAME_STR_STORAGE_SIZE);
     Status = gRT->SetVariable (
                     L"RedfishUsername",
                     &gConfigDxeFormSetGuid,
@@ -511,13 +501,18 @@ SetupVariables (
     }
   }
 
+  // Initialize external Redfish service password
   Size = sizeof (REDFISH_PASSWORD_VARSTORE_DATA);
   Status = gRT->GetVariable (L"RedfishPassword",
                              &gConfigDxeFormSetGuid,
                              NULL, &Size, &RedfishPasswordVar);
   if (EFI_ERROR (Status)) {
-    // Set default empty password
+    // Set default password from PCD
     ZeroMem (&RedfishPasswordVar, sizeof (RedfishPasswordVar));
+    // Convert ASCII PCD to CHAR16 for variable storage
+    AsciiStrToUnicodeStrS ((CHAR8 *)PcdGetPtr (PcdRedfishServicePassword),
+                           RedfishPasswordVar.Password,
+                           REDFISH_PASSWORD_STR_STORAGE_SIZE);
     Status = gRT->SetVariable (
                     L"RedfishPassword",
                     &gConfigDxeFormSetGuid,
@@ -530,13 +525,14 @@ SetupVariables (
     }
   }
 
+  // Initialize HTTPS usage setting
   Size = sizeof (REDFISH_USE_HTTPS_VARSTORE_DATA);
   Status = gRT->GetVariable (L"RedfishUseHttps",
                              &gConfigDxeFormSetGuid,
                              NULL, &Size, &RedfishUseHttpsVar);
   if (EFI_ERROR (Status)) {
-    // Set default to use HTTPS (secure)
-    RedfishUseHttpsVar.UseHttps = 1;
+    // Set default to use HTTPS from PCD
+    RedfishUseHttpsVar.UseHttps = PcdGetBool (PcdRedfishServiceUseHttps) ? 1 : 0;
     Status = gRT->SetVariable (
                     L"RedfishUseHttps",
                     &gConfigDxeFormSetGuid,
@@ -549,13 +545,14 @@ SetupVariables (
     }
   }
 
+  // Initialize certificate verification setting
   Size = sizeof (REDFISH_SKIP_CERT_VARSTORE_DATA);
   Status = gRT->GetVariable (L"RedfishSkipCert",
                              &gConfigDxeFormSetGuid,
                              NULL, &Size, &RedfishSkipCertVar);
   if (EFI_ERROR (Status)) {
-    // Set default to verify certificates (secure)
-    RedfishSkipCertVar.SkipCertVerification = 0;
+    // Set default to verify certificates from PCD (inverted logic)
+    RedfishSkipCertVar.SkipCertVerification = PcdGetBool (PcdRedfishServiceSkipCertVerification) ? 1 : 0;
     Status = gRT->SetVariable (
                     L"RedfishSkipCert",
                     &gConfigDxeFormSetGuid,

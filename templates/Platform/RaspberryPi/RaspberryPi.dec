@@ -53,14 +53,17 @@
 
   ## Platform level Redfish Service control PCD similar to EmulatorPkg
   # These PCDs are used to control the Redfish service behavior on RPi4
-  ## Network Protocol Configuration PCDs for Redfish ManagerNetworkProtocol schema compliance
   gRaspberryPiTokenSpaceGuid.PcdRedfishServiceStopIfSecureBootDisabled|FALSE|BOOLEAN|0x00000040
   gRaspberryPiTokenSpaceGuid.PcdRedfishServiceStopIfExitbootService|FALSE|BOOLEAN|0x00000041
-  ##
-  # Default service credentials for RPi4 Redfish implementation
-  # These match the default credentials expected by the Redfish Profile Simulator
+
+  ## External Redfish Service Configuration PCDs
+  # These PCDs define the external Redfish service that this platform will connect to
   gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId|"admin"|VOID*|0x00000042
   gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword|"password123456"|VOID*|0x00000043
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceHost|""|VOID*|0x00000044
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServicePort|443|UINT16|0x00000045
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUseHttps|TRUE|BOOLEAN|0x00000046
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceSkipCertVerification|FALSE|BOOLEAN|0x00000047
 
 [PcdsFixedAtBuild, PcdsPatchableInModule, PcdsDynamic, PcdsDynamicEx]
   gRaspberryPiTokenSpaceGuid.PcdCpuClock|0|UINT32|0x0000000d

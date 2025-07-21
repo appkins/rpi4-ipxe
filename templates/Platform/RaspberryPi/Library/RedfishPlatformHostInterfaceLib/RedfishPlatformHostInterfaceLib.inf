@@ -23,10 +23,10 @@
   RedfishPlatformHostInterfaceLib.c
 
 [Packages]
-  EmulatorPkg/EmulatorPkg.dec
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
   RedfishPkg/RedfishPkg.dec
+  Platform/RaspberryPi/RaspberryPi.dec
 
 [LibraryClasses]
   BaseLib
@@ -34,14 +34,15 @@
   DebugLib
   MemoryAllocationLib
   PcdLib
+  PrintLib
   UefiLib
+  UefiBootServicesTableLib
 
 [Pcd]
   gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceDevicePath         ## CONSUMES
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceHost                       ## CONSUMES
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServicePort                       ## CONSUMES
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUseHttps                   ## CONSUMES
 
 [Guids]
   gRaspberryPiRedfishServiceGuid
-
-[Depex]
-  gEfiVariableArchProtocolGuid AND
-  gEfiVariableWriteArchProtocolGuid

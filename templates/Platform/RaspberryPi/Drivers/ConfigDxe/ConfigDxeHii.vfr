@@ -126,16 +126,6 @@ formset
       name  = DisplayEnableSShot,
       guid  = CONFIGDXE_FORM_SET_GUID;
 
-    efivarstore REDFISH_ENABLED_VARSTORE_DATA,
-      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
-      name  = RedfishEnabled,
-      guid  = CONFIGDXE_FORM_SET_GUID;
-
-    efivarstore REDFISH_PORT_VARSTORE_DATA,
-      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
-      name  = RedfishPort,
-      guid  = CONFIGDXE_FORM_SET_GUID;
-
     efivarstore REDFISH_HOSTNAME_VARSTORE_DATA,
       attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
       name  = RedfishHostname,
@@ -149,6 +139,11 @@ formset
     efivarstore REDFISH_PASSWORD_VARSTORE_DATA,
       attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
       name  = RedfishPassword,
+      guid  = CONFIGDXE_FORM_SET_GUID;
+
+    efivarstore REDFISH_PORT_VARSTORE_DATA,
+      attribute = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      name  = RedfishPort,
       guid  = CONFIGDXE_FORM_SET_GUID;
 
     efivarstore REDFISH_USE_HTTPS_VARSTORE_DATA,
@@ -434,28 +429,6 @@ formset
         subtitle text = STRING_TOKEN(STR_NULL_STRING);
         text
             help = STRING_TOKEN(STR_NULL_STRING),
-            text = STRING_TOKEN(STR_REDFISH_LOCAL_SERVICE_TITLE);
-
-        oneof varid = RedfishEnabled.Enabled,
-            prompt      = STRING_TOKEN(STR_REDFISH_ENABLED_PROMPT),
-            help        = STRING_TOKEN(STR_REDFISH_ENABLED_HELP),
-            flags       = NUMERIC_SIZE_1 | INTERACTIVE | RESET_REQUIRED,
-            option text = STRING_TOKEN(STR_ENABLED), value = 1, flags = DEFAULT;
-            option text = STRING_TOKEN(STR_DISABLED), value = 0, flags = 0;
-        endoneof;
-
-        numeric varid   = RedfishPort.Port,
-            prompt  = STRING_TOKEN(STR_REDFISH_PORT_PROMPT),
-            help    = STRING_TOKEN(STR_REDFISH_PORT_HELP),
-            flags   = DISPLAY_UINT_DEC | NUMERIC_SIZE_2 | INTERACTIVE | RESET_REQUIRED,
-            minimum = 1,
-            maximum = 65535,
-            default = 443,
-        endnumeric;
-
-        subtitle text = STRING_TOKEN(STR_NULL_STRING);
-        text
-            help = STRING_TOKEN(STR_NULL_STRING),
             text = STRING_TOKEN(STR_REDFISH_EXTERNAL_SERVICE_TITLE);
 
         string varid = RedfishHostname.Hostname,
@@ -465,6 +438,15 @@ formset
             minsize = 1,
             maxsize = REDFISH_HOSTNAME_STR_MAX_LEN,
         endstring;
+
+        numeric varid   = RedfishPort.Port,
+            prompt  = STRING_TOKEN(STR_REDFISH_PORT_PROMPT),
+            help    = STRING_TOKEN(STR_REDFISH_PORT_HELP),
+            flags   = DISPLAY_UINT_DEC | NUMERIC_SIZE_2 | INTERACTIVE | RESET_REQUIRED,
+            minimum = 1,
+            maximum = 65535,
+            default = 443,
+        endnumeric;
 
         string varid = RedfishUsername.Username,
             prompt  = STRING_TOKEN(STR_REDFISH_USERNAME_PROMPT),
