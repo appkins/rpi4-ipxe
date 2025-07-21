@@ -8,6 +8,7 @@
  **/
 
 #langdef en-US  "English"
+#langdef x-UEFI-redfish-ManagerNetworkProtocol.v1_0_0  "x-UEFI-redfish"
 
 #string STR_NULL_STRING          #language en-US ""
 

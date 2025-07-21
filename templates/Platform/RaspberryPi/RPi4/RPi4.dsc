@@ -32,7 +32,16 @@
   DEFINE SECURE_BOOT_ENABLE      = FALSE
   DEFINE INCLUDE_TFTP_COMMAND    = FALSE
   DEFINE DEBUG_PRINT_ERROR_LEVEL = 0x8000004F
-  DEFINE REDFISH_ENABLE          = TRUE
+
+  #
+  # Redfish definition
+  #
+  DEFINE REDFISH_ENABLE = TRUE
+
+  #
+  # Redfish client definition
+  #
+  DEFINE REDFISH_CLIENT               = TRUE
   DEFINE REDFISH_CLIENT_ALL_AUTOGENED = TRUE
 
 !ifndef TFA_BUILD_ARTIFACTS
@@ -56,7 +65,6 @@
 ################################################################################
 
 !include MdePkg/MdeLibs.dsc.inc
-!include RedfishPkg/RedfishLibs.dsc.inc
 
 [LibraryClasses.common]
 !if $(TARGET) == RELEASE
@@ -174,11 +182,11 @@
   IpmiCommandLib|MdeModulePkg/Library/BaseIpmiCommandLibNull/BaseIpmiCommandLibNull.inf
   # Use EmulatorPkg libraries for enhanced variable-based Redfish configuration
   # These provide better integration with RedfishPlatformConfig.efi and runtime configuration
-  RedfishPlatformHostInterfaceLib|EmulatorPkg/Library/RedfishPlatformHostInterfaceLib/RedfishPlatformHostInterfaceLib.inf
-  RedfishPlatformCredentialLib|EmulatorPkg/Library/RedfishPlatformCredentialLib/RedfishPlatformCredentialLib.inf
+  RedfishPlatformHostInterfaceLib|Platform/RaspberryPi/Library/RedfishPlatformHostInterfaceLib/RedfishPlatformHostInterfaceLib.inf
+  RedfishPlatformCredentialLib|Platform/RaspberryPi/Library/RedfishPlatformCredentialLib/RedfishPlatformCredentialLib.inf
   RedfishPlatformWantedDeviceLib|RedfishPkg/Library/RedfishPlatformWantedDeviceLibNull/RedfishPlatformWantedDeviceLibNull.inf
+  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf
   #
-!include RedfishClientPkg/RedfishClientLibs.dsc.inc
   # PCI dependencies
   #
   # PCI root port configuation and description
@@ -186,7 +194,6 @@
   # The "segment lib" provides the CAM accessors/etc when they aren't ECAM standard
   PciSegmentLib|Silicon/Broadcom/Bcm27xx/Library/Bcm2711PciSegmentLib/PciSegmentLib.inf
 
-  RedfishContentCodingLib|RedfishPkg/Library/RedfishContentCodingLibNull/RedfishContentCodingLibNull.inf
 [LibraryClasses.common.SEC]
   PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
   BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
@@ -238,6 +245,9 @@
 !if $(SECURE_BOOT_ENABLE) == TRUE
   BaseCryptLib|CryptoPkg/Library/BaseCryptLib/RuntimeCryptLib.inf
 !endif
+
+!include RedfishPkg/Redfish.dsc.inc
+!include RedfishClientPkg/RedfishClient.dsc.inc
 
 ###################################################################################################
 # BuildOptions Section - Define the module specific tool chain flags that should be used as
@@ -477,11 +487,11 @@
   gEfiRedfishPkgTokenSpaceGuid.PcdRedfishDiscoverAccessModeInBand|False
 
   # Platform-specific Redfish service control
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceStopIfSecureBootDisabled|FALSE
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceStopIfExitbootService|FALSE
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceStopIfSecureBootDisabled|False
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceStopIfExitbootService|False
 
   # Redfish Client configuration for early synchronization
-  gEfiRedfishClientPkgTokenSpaceGuid.PcdRedfishServiceEtagSupported|TRUE
+  gEfiRedfishClientPkgTokenSpaceGuid.PcdRedfishServiceEtagSupported|True
 
   # Use default ReadyToBoot event for Redfish Feature Driver startup
   # This ensures network infrastructure is ready before Redfish synchronization
@@ -492,7 +502,7 @@
   gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword|"password123456"
 
   # Network Configuration for Redfish access
-  gEfiNetworkPkgTokenSpaceGuid.PcdAllowHttpConnections|TRUE
+  gEfiNetworkPkgTokenSpaceGuid.PcdAllowHttpConnections|True
 
   # Content encoding support
   gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServiceContentEncoding|"None"
@@ -511,7 +521,7 @@
   # Redfish Platform Configure DXE driver feature enablement
   #   0x00000001  Enable building Redfish Attribute Registry menu path.
   #   0x00000002  Allow suppressed HII option to be exposed on Redfish.
-  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishPlatformConfigFeatureProperty|0
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishPlatformConfigFeatureProperty|1
 !endif
 
 [PcdsPatchableInModule]
@@ -614,14 +624,6 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdSetupConOutRow|L"Rows"|gRaspberryPiTokenSpaceGuid|0x0|25
   gEfiMdeModulePkgTokenSpaceGuid.PcdConOutRow|L"Rows"|gRaspberryPiTokenSpaceGuid|0x0|25
   gEfiMdeModulePkgTokenSpaceGuid.PcdBootDiscoveryPolicy|L"BootDiscoveryPolicy"|gBootDiscoveryPolicyMgrFormsetGuid|1
-
-!if $(REDFISH_ENABLE) == TRUE
-  #
-  # Redfish Feature Driver startup event configuration for RPi4 platform
-  # Using default ReadyToBoot event for proper initialization timing
-  #
-  gEfiRedfishClientPkgTokenSpaceGuid.PcdEdkIIRedfishFeatureDriverStartupEventGuid|{0xB3, 0x8F, 0xE8, 0x7C, 0xD7, 0x4B, 0x79, 0x46, 0x87, 0xA8, 0xA8, 0xD8, 0xDE, 0xE5, 0x0D, 0x2B}
-!endif
 
 [PcdsDynamicDefault.common]
   #
@@ -801,7 +803,6 @@
   Platform/RaspberryPi/Drivers/MmcDxe/MmcDxe.inf
 
   #
-!include RedfishClientPkg/RedfishClientComponents.dsc.inc
   # Networking stack
   #
 !include NetworkPkg/Network.dsc.inc
@@ -811,12 +812,6 @@
       gEmbeddedTokenSpaceGuid.PcdDmaDeviceLimit|0xffffffffff
   }
 
-!include RedfishPkg/RedfishComponents.dsc.inc
-
-!if $(REDFISH_ENABLE) == TRUE
-  # Redfish Platform Configuration Application for runtime setup
-  EmulatorPkg/Application/RedfishPlatformConfig/RedfishPlatformConfig.inf
-!endif
   #
   # RNG
   #

@@ -88,7 +88,7 @@ DEFAULT_KEYS := -D DEFAULT_KEYS=TRUE \
                 -D DBX_DEFAULT_FILE1=$(WORKSPACE)/$(KEYS_DIR)/arm64_dbx.bin
 
 TRUSTED_FIRMWARE_SRC := firmware/build/rpi5/release/bl31.bin
-TRUSTED_FIRMWARE_DST := internal/Platform/RaspberryPi/RPi5/TrustedFirmware/bl31.bin
+TRUSTED_FIRMWARE_DST := templates/Platform/RaspberryPi/RPi5/TrustedFirmware/bl31.bin
 
 # Default target
 .PHONY: all
@@ -142,23 +142,8 @@ check-deps:
 .PHONY: apply-templates
 apply-templates:
 	@echo "Applying template overlays to platforms directory..."
-	@echo "Copying RaspberryPi.dec with Redfish enhancements..."
-	@cp $(TEMPLATES_DIR)/Platform/RaspberryPi/RaspberryPi.dec platforms/Platform/RaspberryPi/RaspberryPi.dec
-	@echo "Copying RPi4.dsc with Redfish early synchronization support..."
-	@cp $(TEMPLATES_DIR)/Platform/RaspberryPi/RPi4/RPi4.dsc platforms/Platform/RaspberryPi/RPi4/RPi4.dsc
-	@echo "Copying RPi4.fdf with Redfish component integration..."
-	@cp $(TEMPLATES_DIR)/Platform/RaspberryPi/RPi4/RPi4.fdf platforms/Platform/RaspberryPi/RPi4/RPi4.fdf
-	@echo "Copying ConfigVars.h with Redfish IP configuration structures..."
-	@cp $(TEMPLATES_DIR)/Platform/RaspberryPi/Include/ConfigVars.h platforms/Platform/RaspberryPi/Include/ConfigVars.h
-	@echo "Copying ConfigDxeHii.vfr with Redfish UI form..."
-	@cp $(TEMPLATES_DIR)/Platform/RaspberryPi/Drivers/ConfigDxe/ConfigDxeHii.vfr platforms/Platform/RaspberryPi/Drivers/ConfigDxe/ConfigDxeHii.vfr
-	@echo "Copying ConfigDxeHii.uni with Redfish UI strings..."
-	@cp $(TEMPLATES_DIR)/Platform/RaspberryPi/Drivers/ConfigDxe/ConfigDxeHii.uni platforms/Platform/RaspberryPi/Drivers/ConfigDxe/ConfigDxeHii.uni
-	@echo "Copying ConfigDxe.c with Redfish variable initialization..."
-	@cp $(TEMPLATES_DIR)/Platform/RaspberryPi/Drivers/ConfigDxe/ConfigDxe.c platforms/Platform/RaspberryPi/Drivers/ConfigDxe/ConfigDxe.c
-	@echo "Copying ConfigDxe.inf with Redfish PCD declarations..."
-	@cp $(TEMPLATES_DIR)/Platform/RaspberryPi/Drivers/ConfigDxe/ConfigDxe.inf platforms/Platform/RaspberryPi/Drivers/ConfigDxe/ConfigDxe.inf
-	@echo "Template overlay complete"
+	@echo "Copying $(TEMPLATES_DIR) with Redfish enhancements..."
+	@cp -r $(TEMPLATES_DIR)/* platforms/
 
 # Set up EDK2 BaseTools
 .PHONY: setup-edk2
@@ -317,10 +302,6 @@ $(ARCHIVE_DIR)/armstub8-gic.bin: $(FIRMWARE_FILE)
 	@echo "Copying firmware to root directory..."
 	cp $(FIRMWARE_FILE) $(ARCHIVE_DIR)/armstub8-gic.bin
 
-$(ARCHIVE_DIR)/RedfishPlatformConfig.efi: $(FIRMWARE_FILE)
-	@echo "Copying RedfishPlatformConfig.efi to archive directory..."
-	cp Build/RPi4/RELEASE_GCC5/AARCH64/RedfishPlatformConfig.efi $@
-
 $(BRCM_DIR):
 	mkdir -p $@
 
@@ -378,10 +359,10 @@ $(ARCHIVE_DIR)/Readme.md:
 	cp Readme.md $(ARCHIVE_DIR)/Readme.md
 
 # Create UEFI firmware archive
-$(ARCHIVE_FILE): $(ARCHIVE_DIR) $(ARCHIVE_DIR)/armstub8-gic.bin $(ARCHIVE_DIR)/RedfishPlatformConfig.efi setup-brcm $(RPI_FILES) $(OVERLAY_FILES) $(ARCHIVE_DIR)/config.txt $(ARCHIVE_DIR)/Readme.md
+$(ARCHIVE_FILE): $(ARCHIVE_DIR) $(ARCHIVE_DIR)/armstub8-gic.bin setup-brcm $(RPI_FILES) $(OVERLAY_FILES) $(ARCHIVE_DIR)/config.txt $(ARCHIVE_DIR)/Readme.md
 	@echo "Creating UEFI firmware archive..."
 	cd $(ARCHIVE_DIR) && \
-	zip -r ../$@ armstub8-gic.bin RedfishPlatformConfig.efi $(notdir $(RPI_FILES)) config.txt overlays Readme.md firmware efi
+	zip -r ../$@ armstub8-gic.bin $(notdir $(RPI_FILES)) config.txt overlays Readme.md firmware efi
 
 # Display SHA-256 checksums
 .PHONY: checksums

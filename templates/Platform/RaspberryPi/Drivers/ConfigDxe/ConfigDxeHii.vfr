@@ -474,13 +474,13 @@ formset
             maxsize = REDFISH_USERNAME_STR_MAX_LEN,
         endstring;
 
-        password varid = RedfishPassword.Password,
+        string varid = RedfishPassword.Password,
             prompt  = STRING_TOKEN(STR_REDFISH_PASSWORD_PROMPT),
             help    = STRING_TOKEN(STR_REDFISH_PASSWORD_HELP),
             flags   = INTERACTIVE | RESET_REQUIRED,
             minsize = 0,
             maxsize = REDFISH_PASSWORD_STR_MAX_LEN,
-        endpassword;
+        endstring;
 
         oneof varid = RedfishUseHttps.UseHttps,
             prompt      = STRING_TOKEN(STR_REDFISH_USE_HTTPS_PROMPT),
