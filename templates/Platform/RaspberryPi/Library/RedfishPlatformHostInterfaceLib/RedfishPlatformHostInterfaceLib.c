@@ -11,6 +11,7 @@
 **/
 
 #include <Uefi.h>
+#include <Library/PcdLib.h>
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
@@ -20,7 +21,6 @@
 #include <Library/RedfishHostInterfaceLib.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiBootServicesTableLib.h>
-#include <Library/PcdLib.h>
 #include <Protocol/RpiFirmware.h>
 
 #include <Pcd/RestExServiceDevicePath.h>
@@ -152,7 +152,7 @@ RedfishPlatformHostInterfaceProtocolData (
     return EFI_SUCCESS;
   }
 
-  return EFI_NOT_FOUND;
+  return EFI_SUCCESS;
 }
 
 /**
@@ -214,23 +214,59 @@ GetRedfishRecordFromConfiguration (
   }
 
   // Fill in the protocol data
-  (*RedfishProtocolData)->HostIpAssignmentType = 0;  // DHCP
-  (*RedfishProtocolData)->HostIpAddressFormat  = 1;  // IPv4
+  (*RedfishProtocolData)->HostIpAssignmentType = REDFISH_HOST_INTERFACE_HOST_IP_ASSIGNMENT_TYPE_DHCP;  // DHCP
+  (*RedfishProtocolData)->HostIpAddressFormat  = REDFISH_HOST_INTERFACE_HOST_IP_ADDRESS_FORMAT_IP4;  // IPv4
 
   // Redfish Service configuration - external service
-  (*RedfishProtocolData)->RedfishServiceIpDiscoveryType = 1;  // Use static configuration (hostname)
-  (*RedfishProtocolData)->RedfishServiceIpAddressFormat = 1;  // IPv4 (though we're using hostname)
+  (*RedfishProtocolData)->RedfishServiceIpDiscoveryType = REDFISH_HOST_INTERFACE_HOST_IP_ASSIGNMENT_TYPE_STATIC;  // Use static configuration (hostname)
+  (*RedfishProtocolData)->RedfishServiceIpAddressFormat = REDFISH_HOST_INTERFACE_HOST_IP_ADDRESS_FORMAT_IP4;  // IPv4 (though we're using hostname)
 
   // Set service port
   (*RedfishProtocolData)->RedfishServiceIpPort = RedfishServicePort;
   (*RedfishProtocolData)->RedfishServiceVlanId = 0xffffffff;  // No VLAN
 
-  // Set hostname
-  (*RedfishProtocolData)->RedfishServiceHostnameLength = HostNameSize;
-  AsciiStrCpyS ((CHAR8 *)((*RedfishProtocolData)->RedfishServiceHostname), HostNameSize, RedfishHostName);
+  // Always zero IP address and mask fields before parsing hostname or IP
+  ZeroMem ((*RedfishProtocolData)->RedfishServiceIpAddress, sizeof((*RedfishProtocolData)->RedfishServiceIpAddress));
+  ZeroMem ((*RedfishProtocolData)->RedfishServiceIpMask, sizeof((*RedfishProtocolData)->RedfishServiceIpMask));
 
-  DEBUG ((DEBUG_INFO, "RedfishPlatformHostInterfaceLib: Configured external service %a:%d\n",
+  EFI_STATUS  Status;
+
+  // Set hostname
+  // Try to parse as IPv4 address first
+  Status = StrToIpv4Address (RedfishHostName, NULL, (*RedfishProtocolData)->RedfishServiceIpAddress, NULL);
+  if (!EFI_ERROR (Status)) {
+    // It's a valid IPv4 address
+    (*RedfishProtocolData)->RedfishServiceIpAddressFormat = REDFISH_HOST_INTERFACE_HOST_IP_ADDRESS_FORMAT_IP4;
+    (*RedfishProtocolData)->RedfishServiceIpDiscoveryType = REDFISH_HOST_INTERFACE_HOST_IP_ASSIGNMENT_TYPE_STATIC;
+    DEBUG ((DEBUG_INFO, "RedfishPlatformHostInterfaceLib: Configured external service IPv4 %a:%d\n",
+        RedfishHostName, RedfishServicePort));
+  } else {
+    // Try to parse as IPv6 address
+    UINT8 Ipv6Address[16];
+    ZeroMem (Ipv6Address, sizeof(Ipv6Address));
+
+    Status = StrToIpv6Address (RedfishHostName, NULL, Ipv6Address, NULL);
+    if (!EFI_ERROR (Status)) {
+      // It's a valid IPv6 address
+      (*RedfishProtocolData)->RedfishServiceIpAddressFormat = REDFISH_HOST_INTERFACE_HOST_IP_ADDRESS_FORMAT_IP6;
+      (*RedfishProtocolData)->RedfishServiceIpDiscoveryType = REDFISH_HOST_INTERFACE_HOST_IP_ASSIGNMENT_TYPE_STATIC;
+      // Copy IPv6 address (first 4 bytes for IPv4 compatibility)
+      CopyMem((*RedfishProtocolData)->RedfishServiceIpAddress, Ipv6Address, sizeof((*RedfishProtocolData)->RedfishServiceIpAddress));
+      DEBUG ((DEBUG_INFO, "RedfishPlatformHostInterfaceLib: Configured external service IPv6 %a:%d\n",
           RedfishHostName, RedfishServicePort));
+    } else {
+      // It's a hostname/domain name
+      (*RedfishProtocolData)->RedfishServiceHostnameLength = HostNameSize - 1; // Exclude null terminator
+      Status = AsciiStrCpyS ((CHAR8 *)((*RedfishProtocolData)->RedfishServiceHostname), HostNameSize, RedfishHostName);
+      if (EFI_ERROR (Status)) {
+        FreePool (*RedfishProtocolData);
+        *RedfishProtocolData = NULL;
+        return Status;
+      }
+      DEBUG ((DEBUG_INFO, "RedfishPlatformHostInterfaceLib: Configured external service hostname %a:%d\n",
+          RedfishHostName, RedfishServicePort));
+    }
+  }
 
   return EFI_SUCCESS;
 }
@@ -291,7 +327,7 @@ RedfishPlatformHostInterfaceNotification (
   OUT EFI_GUID  **InformationReadinessGuid
   )
 {
-  return EFI_UNSUPPORTED;
+  return EFI_ALREADY_STARTED;
 }
 
 /**

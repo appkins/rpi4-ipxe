@@ -30,6 +30,8 @@ SIMULATOR_DIR := redfish-client/Tools/Redfish-Profile-Simulator
 
 # Generated files
 ARCHIVE_FILE := RPi4_UEFI_Firmware_$(VERSION).zip
+IMAGE_FILE := RPi4_UEFI_Firmware_$(VERSION).img
+DMG_FILE := $(addsuffix .dmg, $(basename $(IMAGE_FILE)))
 FIRMWARE_FILE := $(FIRMWARE_DIR)/RPI_EFI.fd
 BRCM_DEB_FILE := $(BRCM_DIR)/$(notdir $(BRCM_FIRMWARE_URL))
 BRCM_ARCHIVE := $(BRCM_DIR)/data.tar.xz
@@ -74,7 +76,7 @@ BUILD_FLAGS := -D NETWORK_ALLOW_HTTP_CONNECTIONS=TRUE \
                -D INCLUDE_TFTP_COMMAND=TRUE \
                -D NETWORK_ISCSI_ENABLE=TRUE \
                -D SMC_PCI_SUPPORT=1 \
-			   -D NDEBUG=TRUE
+			   -D NDEBUG=FALSE
 TLS_DISABLE_FLAGS := -D NETWORK_TLS_ENABLE=FALSE \
                      -D NETWORK_ALLOW_HTTP_CONNECTIONS=TRUE
 DEFAULT_KEYS := -D DEFAULT_KEYS=TRUE \
@@ -281,7 +283,7 @@ test-simulator:
 	@curl -s -u admin:pwd123456 http://localhost:5000/redfish/v1/Systems/2M220100SL/Bios | python3 -c "import sys,json; data=json.load(sys.stdin); attrs=list(data['Attributes'].items())[:5]; print(json.dumps(dict(attrs), indent=2))" || echo "Failed to get BIOS settings"
 
 # Build UEFI firmware
-$(FIRMWARE_FILE): setup-edk2 apply-templates $(KEY_FILES)
+$(FIRMWARE_FILE): | setup-edk2 apply-templates $(KEY_FILES)
 	@echo "Building UEFI firmware with Redfish early synchronization support..."
 	export WORKSPACE=$(WORKSPACE) && \
 	export PACKAGES_PATH="$(PACKAGES_PATH)" && \
@@ -356,21 +358,40 @@ $(ARCHIVE_DIR)/config.txt:
 $(ARCHIVE_DIR)/Readme.md:
 	cp Readme.md $(ARCHIVE_DIR)/Readme.md
 
+$(BUILD_DIR)/$(IMAGE_FILE): $(BUILD_DIR)/$(ARCHIVE_FILE)
+	@echo "Creating disk image from firmware archive..."
+	@echo "Converting $(BUILD_DIR)/$(ARCHIVE_FILE) to $(BUILD_DIR)/$(IMAGE_FILE)..."
+	if [ -f $(BUILD_DIR)/$(DMG_FILE) ]; then rm -f $(BUILD_DIR)/$(DMG_FILE); fi
+	hdiutil create -volname RPI_BOOT -fs MS-DOS -srcfolder $(ARCHIVE_DIR) $(BUILD_DIR)/$(DMG_FILE)
+	if [ -f $(BUILD_DIR)/$(IMAGE_FILE).dmg ]; then rm -f $(BUILD_DIR)/$(IMAGE_FILE).dmg; fi
+	hdiutil convert $(BUILD_DIR)/$(DMG_FILE) -format UDRW -o $(BUILD_DIR)/$(IMAGE_FILE).dmg
+	mv $(BUILD_DIR)/$(IMAGE_FILE).dmg $(BUILD_DIR)/$(IMAGE_FILE)
+	@echo "Creating final image file..."
+	@echo "Using hdiutil to create image file..."
+
+.PHONY: flash-ssd
+flash-ssd: $(BUILD_DIR)/$(ARCHIVE_FILE)
+	@echo "Flashing image to device..."
+	@echo "Use the following command to flash the image:"
+	@echo "Eject the SD card before flashing!"
+	diskutil eraseDisk FAT32 BOOT MBRFormat "$(shell diskutil list external physical | grep -E '^/' | cut -d' ' -f1 | head -n1)"
+	cp -r $(ARCHIVE_DIR)/* /Volumes/BOOT/
+
 # Create UEFI firmware archive
-$(ARCHIVE_FILE): $(ARCHIVE_DIR) $(ARCHIVE_DIR)/armstub8-gic.bin setup-brcm $(RPI_FILES) $(OVERLAY_FILES) $(ARCHIVE_DIR)/config.txt $(ARCHIVE_DIR)/Readme.md
+$(BUILD_DIR)/$(ARCHIVE_FILE): $(ARCHIVE_DIR) $(ARCHIVE_DIR)/armstub8-gic.bin setup-brcm $(RPI_FILES) $(OVERLAY_FILES) $(ARCHIVE_DIR)/config.txt $(ARCHIVE_DIR)/Readme.md
 	@echo "Creating UEFI firmware archive..."
 	cd $(ARCHIVE_DIR) && \
-	zip -r ../$@ armstub8-gic.bin $(notdir $(RPI_FILES)) config.txt overlays Readme.md firmware efi
+	zip -r ../../$@ armstub8-gic.bin $(notdir $(RPI_FILES)) config.txt overlays Readme.md firmware efi
 
 # Display SHA-256 checksums
 .PHONY: checksums
-checksums: $(FIRMWARE_FILE) $(ARCHIVE_FILE)
+checksums: $(FIRMWARE_FILE) $(BUILD_DIR)/$(ARCHIVE_FILE)
 	@echo "SHA-256 checksums:"
-	sha256sum $(FIRMWARE_FILE) $(ARCHIVE_FILE)
+	sha256sum $(FIRMWARE_FILE) $(BUILD_DIR)/$(ARCHIVE_FILE)
 
 # Build everything
 .PHONY: build
-build: check-deps $(ARCHIVE_DIR)/armstub8-gic.bin download-rpi-files setup-brcm $(ARCHIVE_FILE) checksums
+build: check-deps $(ARCHIVE_DIR)/armstub8-gic.bin download-rpi-files setup-brcm $(BUILD_DIR)/$(ARCHIVE_FILE) checksums
 
 # Clean platforms submodule to remote state
 .PHONY: clean-platforms
