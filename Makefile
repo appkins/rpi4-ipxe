@@ -94,7 +94,7 @@ TRUSTED_FIRMWARE_DST := templates/Platform/RaspberryPi/RPi5/TrustedFirmware/bl31
 
 # Default target
 .PHONY: all
-all: $(ARCHIVE_FILE)
+all: $(FIRMWARE_FILE) $(BUILD_DIR)/$(ARCHIVE_FILE)
 
 $(IPXE_LOCAL_DIR):
 	@echo "Creating local configuration directory..."

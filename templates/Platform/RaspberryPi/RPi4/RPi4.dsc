@@ -478,8 +478,8 @@
 
 !if $(REDFISH_ENABLE) == TRUE
   # Redfish service early synchronization configuration (based on EmulatorPkg)
-  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceDevicePath.DevicePathMatchMode|DEVICE_PATH_MATCH_MODE_MAX
-  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceDevicePath.DevicePathNum|0
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceDevicePath.DevicePathMatchMode|DEVICE_PATH_MATCH_MAC_NODE
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceDevicePath.DevicePathNum|1
   #
   # Network device path for Redfish service binding (will be auto-detected at runtime)
   # This placeholder will be updated by RedfishPlatformConfig.efi or automatic detection
@@ -497,7 +497,7 @@
   # gEfiEndOfDxeEventGroupGuid:         {0x7A, 0x96, 0xCE, 0x02, 0x7E, 0xDD, 0xFC, 0x4F, 0x9E, 0xE7, 0x81, 0x0C, 0xF0, 0x47, 0x08, 0x80}
   # gEfiEventExitBootServicesGuid:      {0x55, 0xF0, 0xAB, 0x27, 0xB8, 0xB1, 0x26, 0x4C, 0x80, 0x48, 0x74, 0x8F, 0x37, 0xBA, 0xA2, 0xDF}
   # gEfiRedfishClientPkgTokenSpaceGuid.PcdEdkIIRedfishFeatureDriverStartupEventGuid|gEfiEventExitBootServicesGuid
-  gEfiRedfishClientPkgTokenSpaceGuid.PcdEdkIIRedfishFeatureDriverStartupEventGuid|{0x55, 0xF0, 0xAB, 0x27, 0xB8, 0xB1, 0x26, 0x4C, 0x80, 0x48, 0x74, 0x8F, 0x37, 0xBA, 0xA2, 0xDF}
+  # gEfiRedfishClientPkgTokenSpaceGuid.PcdEdkIIRedfishFeatureDriverStartupEventGuid|{0xB3, 0x8F, 0xE8, 0x7C, 0xD7, 0x4B, 0x79, 0x46, 0x87, 0xA8, 0xA8, 0xD8, 0xDE, 0xE5, 0x0D, 0x2B}
 
   # Network Configuration for Redfish access
   gEfiNetworkPkgTokenSpaceGuid.PcdAllowHttpConnections|True
@@ -509,7 +509,7 @@
   # Redfish Debug enablement (similar to EmulatorPkg)
   #
   # 0x0000000000000001  RedfishPlatformConfigDxe driver debug enabled.
-  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishDebugCategory|1
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishDebugCategory|0
   #   0x00000001  x-uefi-redfish string database message enabled
   #   0x00000002  Debug Message for dumping formset
   #   0x00000004  Debug Message for x-uefi-redfish searching result
@@ -528,17 +528,8 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdSerialClockRate|500000000
 
 !if $(REDFISH_ENABLE) == TRUE
-  #
-  # Network device path for Redfish service binding (will be auto-detected at runtime)
-  # This placeholder will be updated by RedfishPlatformConfig.efi or automatic detection
-  #
-  # gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServiceUuid|L"a0cec817-f666-0000-0000-000000000000"
-  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServiceUuid|L"a0cec817-f666-0000-0000-000000000000"
-  # gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceDevicePath.DevicePath|{DEVICE_PATH("MAC(a0cec817f666,0x1)")}
-  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServicePort|5000
-  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishHostName|"10.0.198.24"
-  # gEfiRedfishPkgTokenSpaceGuid.PcdRedfishSendReceiveTimeout|5000
-
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServicePort|5000
+  gRaspberryPiTokenSpaceGuid.PcdRedfishHostName|"10.0.198.24"
 !endif
 
 [PcdsDynamicHii.common.DEFAULT]
