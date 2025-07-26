@@ -199,8 +199,9 @@ RedfishPlatformHostInterfaceProtocolData (
     if (ThisInstance->IsOnBoardNic && ThisInstance->IsSupportedHostInterface) {
       // Get the host name before allocating memory.
       // Note: These PCDs need to be defined in the platform's .dec file
+      #ifndef PcdRedfishHostName
       HostNameString     = (CHAR8 *)"rpi-redfish";  // Default fallback
-      #ifdef PcdRedfishHostName
+      #else
       if (PcdGetPtr (PcdRedfishHostName) != NULL) {
         HostNameString = (CHAR8 *)PcdGetPtr (PcdRedfishHostName);
       }
@@ -226,7 +227,7 @@ RedfishPlatformHostInterfaceProtocolData (
       // Service UUID
       ZeroMem ((VOID *)&RedfishOverIpData->ServiceUuid, sizeof (EFI_GUID));
       #ifdef PcdRedfishServiceUuid
-      if ((PcdGetPtr (PcdRedfishServiceUuid) != NULL) && 
+      if ((PcdGetPtr (PcdRedfishServiceUuid) != NULL) &&
           (StrLen ((CONST CHAR16 *)PcdGetPtr (PcdRedfishServiceUuid)) != 0)) {
         StrToGuid ((CONST CHAR16 *)PcdGetPtr (PcdRedfishServiceUuid), &RedfishOverIpData->ServiceUuid);
         DEBUG ((DEBUG_REDFISH_HOST_INTERFACE, " Service UUID: %g", &RedfishOverIpData->ServiceUuid));
@@ -268,8 +269,9 @@ RedfishPlatformHostInterfaceProtocolData (
         );
 
       // RedfishServiceIpPort
+      #ifndef PcdRedfishServicePort
       RedfishOverIpData->RedfishServiceIpPort = 443;  // Default HTTPS port
-      #ifdef PcdRedfishServicePort
+      #else
       RedfishOverIpData->RedfishServiceIpPort = PcdGet16 (PcdRedfishServicePort);
       #endif
 

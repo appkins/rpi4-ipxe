@@ -5,3 +5,13 @@ To facilitate this change, we will use the struct `PCI_OR_PCIE_INTERFACE_DEVICE_
 This implementation will be entirely out of band, leveraging the Raspberry PI's on board NIC. We do not want to include anything related to In band access like IPMI etc.
 
 Keep the library simple, while following the patterns in `edk2/RedfishPkg/Library/PlatformHostInterfaceBmcUsbNicLib`.
+
+---
+
+Next, add a simple credential library loosely based on `edk2/RedfishPkg/Library/PlatformCredentialLibNull`. Make the service pull efi variables similar to `edk2/EmulatorPkg/Library/RedfishPlatformCredentialLib`, but if `gRaspberryPiTokenSpaceGuid.PcdRedfishServiceAuthenticationEnabled` is `False`, set `AuthMethodNone`. Otherwise, use `gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId` and `gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword` to set `AuthMethodHttpBasic`.
+
+Copy the contents of `platforms/Platform/RaspberryPi/Drivers/ConfigDxe` into `templates/Platform/RaspberryPi/Drivers/ConfigDxe`. Afterwards, modify the new driver code at `templates/Platform/RaspberryPi/Drivers/ConfigDxe` to include a new form section for the Redfish Service. Include `gRaspberryPiTokenSpaceGuid.PcdRedfishServiceAuthenticationEnabled`, `gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId` and `gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword` to the form, with UserId and Password being hidden if `PcdRedfishServiceAuthenticationEnabled` is `False`.
+
+---
+
+When adding `PcdRedfishServicePassword`, be careful about the `password` form type. This requires
