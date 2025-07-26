@@ -298,9 +298,9 @@ $(FIRMWARE_FILE): | setup-edk2 apply-templates $(KEY_FILES)
 		$(BUILD_FLAGS) $(DEFAULT_KEYS) $(TLS_DISABLE_FLAGS)
 
 # Copy firmware to root directory
-$(ARCHIVE_DIR)/armstub8-gic.bin: $(FIRMWARE_FILE)
+$(ARCHIVE_DIR)/RPI_EFI.fd: $(FIRMWARE_FILE)
 	@echo "Copying firmware to root directory..."
-	cp $(FIRMWARE_FILE) $(ARCHIVE_DIR)/armstub8-gic.bin
+	cp $(FIRMWARE_FILE) $(ARCHIVE_DIR)/RPI_EFI.fd
 
 $(BRCM_DIR):
 	mkdir -p $@
@@ -378,10 +378,10 @@ flash-ssd: $(BUILD_DIR)/$(ARCHIVE_FILE)
 	cp -r $(ARCHIVE_DIR)/* /Volumes/BOOT/
 
 # Create UEFI firmware archive
-$(BUILD_DIR)/$(ARCHIVE_FILE): $(ARCHIVE_DIR) $(ARCHIVE_DIR)/armstub8-gic.bin setup-brcm $(RPI_FILES) $(OVERLAY_FILES) $(ARCHIVE_DIR)/config.txt $(ARCHIVE_DIR)/Readme.md
+$(BUILD_DIR)/$(ARCHIVE_FILE): $(ARCHIVE_DIR) $(ARCHIVE_DIR)/RPI_EFI.fd setup-brcm $(RPI_FILES) $(OVERLAY_FILES) $(ARCHIVE_DIR)/config.txt $(ARCHIVE_DIR)/Readme.md
 	@echo "Creating UEFI firmware archive..."
 	cd $(ARCHIVE_DIR) && \
-	zip -r ../../$@ armstub8-gic.bin $(notdir $(RPI_FILES)) config.txt overlays Readme.md firmware efi
+	zip -r ../../$@ RPI_EFI.fd $(notdir $(RPI_FILES)) config.txt overlays Readme.md firmware efi
 
 # Display SHA-256 checksums
 .PHONY: checksums
@@ -391,7 +391,7 @@ checksums: $(FIRMWARE_FILE) $(BUILD_DIR)/$(ARCHIVE_FILE)
 
 # Build everything
 .PHONY: build
-build: check-deps $(ARCHIVE_DIR)/armstub8-gic.bin download-rpi-files setup-brcm $(BUILD_DIR)/$(ARCHIVE_FILE) checksums
+build: check-deps $(ARCHIVE_DIR)/RPI_EFI.fd download-rpi-files setup-brcm $(BUILD_DIR)/$(ARCHIVE_FILE) checksums
 
 # Clean platforms submodule to remote state
 .PHONY: clean-platforms
@@ -402,7 +402,7 @@ clean-platforms:
 
 # Clean build artifacts
 .PHONY: clean
-clean: clean-platforms stop-simulator
+clean: stop-simulator clean-platforms
 	@echo "Cleaning build artifacts..."
 	$(MAKE) -C $(IPXE_DIR) clean
 	rm -rf Build/

@@ -21,66 +21,16 @@
 #include <Library/UefiLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
+#include <Protocol/RpiFirmware.h>
 
 #include <Pcd/RestExServiceDevicePath.h>
 #include <Guid/GlobalVariable.h>
 
 #define VERBOSE_COLUME_SIZE  (16)
 
-REDFISH_OVER_IP_PROTOCOL_DATA  *mRedfishOverIpProtocolData;
-UINT8                          mRedfishProtocolDataSize;
-
-/**
-  Get the MAC address of NIC.
-
-  @param[out] MacAddress      Pointer to retrieve MAC address
-
-  @retval   EFI_SUCCESS      MAC address is returned in MacAddress
-
-**/
-EFI_STATUS
-GetMacAddressInformation (
-  OUT EFI_MAC_ADDRESS  *MacAddress
-  )
-{
-  REST_EX_SERVICE_DEVICE_PATH_DATA  *RestExServiceDevicePathData;
-  EFI_DEVICE_PATH_PROTOCOL          *RestExServiceDevicePath;
-  MAC_ADDR_DEVICE_PATH              *MacAddressDevicePath;
-
-  RestExServiceDevicePathData = NULL;
-  RestExServiceDevicePath     = NULL;
-
-  RestExServiceDevicePathData = (REST_EX_SERVICE_DEVICE_PATH_DATA *)PcdGetPtr (PcdRedfishRestExServiceDevicePath);
-  if ((RestExServiceDevicePathData == NULL) ||
-      (RestExServiceDevicePathData->DevicePathNum == 0) ||
-      !IsDevicePathValid (RestExServiceDevicePathData->DevicePath, 0))
-  {
-    return EFI_NOT_FOUND;
-  }
-
-  RestExServiceDevicePath = RestExServiceDevicePathData->DevicePath;
-  if (RestExServiceDevicePathData->DevicePathMatchMode != DEVICE_PATH_MATCH_MAC_NODE) {
-    return EFI_NOT_FOUND;
-  }
-
-  //
-  // Find Mac DevicePath Node.
-  //
-  while (!IsDevicePathEnd (RestExServiceDevicePath) &&
-         ((DevicePathType (RestExServiceDevicePath) != MESSAGING_DEVICE_PATH) ||
-          (DevicePathSubType (RestExServiceDevicePath) != MSG_MAC_ADDR_DP)))
-  {
-    RestExServiceDevicePath = NextDevicePathNode (RestExServiceDevicePath);
-  }
-
-  if (!IsDevicePathEnd (RestExServiceDevicePath)) {
-    MacAddressDevicePath = (MAC_ADDR_DEVICE_PATH *)RestExServiceDevicePath;
-    CopyMem ((VOID *)MacAddress, (VOID *)&MacAddressDevicePath->MacAddress, sizeof (EFI_MAC_ADDRESS));
-    return EFI_SUCCESS;
-  }
-
-  return EFI_NOT_FOUND;
-}
+STATIC RASPBERRY_PI_FIRMWARE_PROTOCOL *mFwProtocol;
+REDFISH_OVER_IP_PROTOCOL_DATA         *mRedfishOverIpProtocolData;
+UINT8                                 mRedfishProtocolDataSize;
 
 /**
   Get platform Redfish host interface device descriptor.
@@ -114,13 +64,22 @@ RedfishPlatformHostInterfaceDeviceDescriptor (
   //
   ThisDeviceDescriptor         = (PCI_OR_PCIE_INTERFACE_DEVICE_DESCRIPTOR_V2 *)((UINT8 *)RedfishInterfaceData + 1);
   ThisDeviceDescriptor->Length = sizeof (PCI_OR_PCIE_INTERFACE_DEVICE_DESCRIPTOR_V2) + 1;
-  Status                       = GetMacAddressInformation (&MacAddress);
+
+  // Get the MAC address from the firmware.
+  //
+  Status = mFwProtocol->GetMacAddress (ThisDeviceDescriptor->MacAddress);
   if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "RedfishPlatformHostInterfaceLib: Failed to get MAC address - %r\n", Status));
     FreePool (RedfishInterfaceData);
     return EFI_NOT_FOUND;
   }
 
-  CopyMem ((VOID *)&ThisDeviceDescriptor->MacAddress, (VOID *)&MacAddress, sizeof (ThisDeviceDescriptor->MacAddress));
+  CopyMem (
+    (VOID *)&RedfishInterfaceData->DeviceDescriptor.PciPcieDeviceV2,
+    (VOID *)ThisDeviceDescriptor,
+    sizeof (RedfishInterfaceData->DeviceDescriptor.PciPcieDeviceV2)
+    );
+
   *DeviceType       = REDFISH_HOST_INTERFACE_DEVICE_TYPE_PCI_PCIE_V2;
   *DeviceDescriptor = RedfishInterfaceData;
   return EFI_SUCCESS;
@@ -535,6 +494,19 @@ RedfishPlatformHostInterfaceConstructor (
   )
 {
   EFI_STATUS  Status;
+
+  if (mFwProtocol == NULL) {
+    // Locate the Raspberry Pi firmware protocol for MAC address retrieval
+    Status = gBS->LocateProtocol (
+                    &gRaspberryPiFirmwareProtocolGuid,
+                    NULL,
+                    (VOID **)&mFwProtocol
+                    );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_WARN, "RedfishPlatformHostInterfaceLib: Raspberry Pi firmware protocol not found - %r\n", Status));
+      mFwProtocol = NULL;
+    }
+  }
 
   Status = GetRedfishRecordFromVariable (&mRedfishOverIpProtocolData, &mRedfishProtocolDataSize);
   DEBUG ((DEBUG_INFO, "%a: GetRedfishRecordFromVariable() - %r\n", __func__, Status));

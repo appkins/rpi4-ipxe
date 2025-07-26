@@ -36,7 +36,11 @@
   #
   # Redfish definition
   #
-  DEFINE REDFISH_ENABLE = TRUE
+  DEFINE REDFISH_ENABLE                 = TRUE
+  DEFINE NETWORK_SNP_ENABLE             = TRUE
+  DEFINE NETWORK_IP4_ENABLE             = TRUE
+  DEFINE NETWORK_HTTP_ENABLE            = TRUE
+  DEFINE NETWORK_ALLOW_HTTP_CONNECTIONS = TRUE
 
   #
   # Redfish client definition
@@ -183,10 +187,10 @@
   IpmiCommandLib|MdeModulePkg/Library/BaseIpmiCommandLibNull/BaseIpmiCommandLibNull.inf
   # Use EmulatorPkg libraries for enhanced variable-based Redfish configuration
   # These provide better integration with RedfishPlatformConfig.efi and runtime configuration
-  # RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceLibNull/PlatformHostInterfaceLibNull.inf
-  # RedfishPlatformCredentialLib|RedfishPkg/Library/PlatformCredentialLibNull/PlatformCredentialLibNull.inf
-  RedfishPlatformHostInterfaceLib|Platform/RaspberryPi/Library/RedfishPlatformHostInterfaceLib/RedfishPlatformHostInterfaceLib.inf
-  RedfishPlatformCredentialLib|Platform/RaspberryPi/Library/RedfishPlatformCredentialLib/RedfishPlatformCredentialLib.inf
+  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceLibNull/PlatformHostInterfaceLibNull.inf
+  RedfishPlatformCredentialLib|RedfishPkg/Library/PlatformCredentialLibNull/PlatformCredentialLibNull.inf
+  # RedfishPlatformHostInterfaceLib|Platform/RaspberryPi/Library/RedfishPlatformHostInterfaceLib/RedfishPlatformHostInterfaceLib.inf
+  # RedfishPlatformCredentialLib|Platform/RaspberryPi/Library/RedfishPlatformCredentialLib/RedfishPlatformCredentialLib.inf
   RedfishPlatformWantedDeviceLib|RedfishPkg/Library/RedfishPlatformWantedDeviceLibNull/RedfishPlatformWantedDeviceLibNull.inf
   #
   # PCI dependencies
@@ -484,6 +488,7 @@
   # Network device path for Redfish service binding (will be auto-detected at runtime)
   # This placeholder will be updated by RedfishPlatformConfig.efi or automatic detection
   #
+  gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceDevicePath.DevicePath|{DEVICE_PATH("MAC(d83add5a4436,0x1)")}
   gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceAccessModeInBand|False
   gEfiRedfishPkgTokenSpaceGuid.PcdRedfishDiscoverAccessModeInBand|False
 
@@ -526,11 +531,6 @@
 
 [PcdsPatchableInModule]
   gEfiMdeModulePkgTokenSpaceGuid.PcdSerialClockRate|500000000
-
-!if $(REDFISH_ENABLE) == TRUE
-  gRaspberryPiTokenSpaceGuid.PcdRedfishServicePort|5000
-  gRaspberryPiTokenSpaceGuid.PcdRedfishHostName|"10.0.198.24"
-!endif
 
 [PcdsDynamicHii.common.DEFAULT]
 
@@ -613,15 +613,18 @@
   # 1  - Yes, DT has Reload
   #
   gRaspberryPiTokenSpaceGuid.PcdXhciReload|L"XhciReload"|gConfigDxeFormSetGuid|0x0|0
+
   #
   # Redfish service configuration.
   #
-  # gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId|L"RedfishServiceUserId"|gConfigDxeFormSetGuid|0x0|gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId
-  # gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword|L"RedfishServicePassword"|gConfigDxeFormSetGuid|0x0|gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword
-  # gRaspberryPiTokenSpaceGuid.PcdRedfishServiceHost|L"RedfishServiceHost"|gConfigDxeFormSetGuid|0x0|gRaspberryPiTokenSpaceGuid.PcdRedfishServiceHost
-  # gRaspberryPiTokenSpaceGuid.PcdRedfishServicePort|L"RedfishServicePort"|gConfigDxeFormSetGuid|0x0|gRaspberryPiTokenSpaceGuid.PcdRedfishServicePort
-  # gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUseHttps|L"RedfishServiceUseHttps"|gConfigDxeFormSetGuid|0x0|gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUseHttps
-  # gRaspberryPiTokenSpaceGuid.PcdRedfishServiceSkipCertVerification|L"RedfishServiceSkipCertVerification"|gConfigDxeFormSetGuid|0x0|gRaspberryPiTokenSpaceGuid.PcdRedfishServiceSkipCertVerification
+  # gRaspberryPiTokenSpaceGuid.PcdHostIpAssignmentType|L"HostIpAssignmentType"|gConfigDxeFormSetGuid|0x0|3
+  # gRaspberryPiTokenSpaceGuid.PcdHostIpAddress|L"HostIpAddress"|gConfigDxeFormSetGuid|0x0|L""
+  # gRaspberryPiTokenSpaceGuid.PcdHostIpMask|L"HostIpMask"|gConfigDxeFormSetGuid|0x0|L""
+  # gRaspberryPiTokenSpaceGuid.PcdRedfishServiceIpAddress|L"RedfishServiceIpAddress"|gConfigDxeFormSetGuid|0x0|L"10.0.198.24"
+  # gRaspberryPiTokenSpaceGuid.PcdRedfishServiceIpMask|L"RedfishServiceIpMask"|gConfigDxeFormSetGuid|0x0|L"255.255.255.254"
+  # gRaspberryPiTokenSpaceGuid.PcdRedfishServiceIpPort|L"RedfishServiceIpPort"|gConfigDxeFormSetGuid|0x0|5000
+  # gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId|L"RedfishServiceUserId"|gConfigDxeFormSetGuid|0x0|L"admin"
+  # gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword|L"RedfishServicePassword"|gConfigDxeFormSetGuid|0x0|L"pwd123456"
 
   #
   # Common UEFI ones.

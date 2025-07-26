@@ -39,9 +39,14 @@
 [Pcd]
   gEfiRedfishPkgTokenSpaceGuid.PcdRedfishRestExServiceDevicePath         ## CONSUMES
 
+[Protocols]
+  gRaspberryPiFirmwareProtocolGuid                                      ## CONSUMES
+
 [Guids]
   gRaspberryPiTokenSpaceGuid
 
 [Depex]
   gEfiVariableArchProtocolGuid AND
-  gEfiVariableWriteArchProtocolGuid
+  gEfiVariableWriteArchProtocolGuid AND
+  gPcdProtocolGuid AND
+  gRaspberryPiFirmwareProtocolGuid
