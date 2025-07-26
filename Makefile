@@ -293,7 +293,8 @@ $(FIRMWARE_FILE): | setup-edk2 apply-templates $(KEY_FILES)
 		-p platforms/Platform/RaspberryPi/RPi4/RPi4.dsc \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor=L"$(PROJECT_URL)" \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString=L"UEFI Firmware $(VERSION)" \
-		--pcd gEfiRedfishPkgTokenSpaceGuid.PcdRedfishHostName="10.0.198.24" \
+		--pcd gEfiRedfishPkgTokenSpaceGuid.PcdRedfishHostName="ironic.appkins.io" \
+		--pcd gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServiceUuid="00000000-0000-0000-0000-000000000001" \
 		--pcd gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServicePort=5000 \
 		$(BUILD_FLAGS) $(DEFAULT_KEYS) $(TLS_DISABLE_FLAGS)
 
@@ -376,6 +377,16 @@ flash-ssd: $(BUILD_DIR)/$(ARCHIVE_FILE)
 	@echo "Eject the SD card before flashing!"
 	diskutil eraseDisk FAT32 BOOT MBRFormat "$(shell diskutil list external physical | grep -E '^/' | cut -d' ' -f1 | head -n1)"
 	cp -r $(ARCHIVE_DIR)/* /Volumes/BOOT/
+
+.PHONY: unmount-disk
+unmount-disk: flash-ssd
+	@echo "Unmounting disk..."
+	diskutil unmountDisk "$(shell diskutil list external physical | grep -E '^/' | cut -d' ' -f1 | head -n1)"
+
+.PHONY: copy-ssd
+copy-ssd: $(FIRMWARE_FILE)
+	cp $(FIRMWARE_FILE) /Volumes/BOOT/RPI_EFI.fd
+	diskutil unmountDisk "$(shell diskutil list external physical | grep -E '^/' | cut -d' ' -f1 | head -n1)"
 
 # Create UEFI firmware archive
 $(BUILD_DIR)/$(ARCHIVE_FILE): $(ARCHIVE_DIR) $(ARCHIVE_DIR)/RPI_EFI.fd setup-brcm $(RPI_FILES) $(OVERLAY_FILES) $(ARCHIVE_DIR)/config.txt $(ARCHIVE_DIR)/Readme.md

@@ -188,9 +188,9 @@
   # Use EmulatorPkg libraries for enhanced variable-based Redfish configuration
   # These provide better integration with RedfishPlatformConfig.efi and runtime configuration
   RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceLibNull/PlatformHostInterfaceLibNull.inf
-  RedfishPlatformCredentialLib|RedfishPkg/Library/PlatformCredentialLibNull/PlatformCredentialLibNull.inf
+  # RedfishPlatformCredentialLib|RedfishPkg/Library/PlatformCredentialLibNull/PlatformCredentialLibNull.inf
   # RedfishPlatformHostInterfaceLib|Platform/RaspberryPi/Library/RedfishPlatformHostInterfaceLib/RedfishPlatformHostInterfaceLib.inf
-  # RedfishPlatformCredentialLib|Platform/RaspberryPi/Library/RedfishPlatformCredentialLib/RedfishPlatformCredentialLib.inf
+  RedfishPlatformCredentialLib|Platform/RaspberryPi/Library/RedfishPlatformCredentialLib/RedfishPlatformCredentialLib.inf
   RedfishPlatformWantedDeviceLib|RedfishPkg/Library/RedfishPlatformWantedDeviceLibNull/RedfishPlatformWantedDeviceLibNull.inf
   #
   # PCI dependencies
