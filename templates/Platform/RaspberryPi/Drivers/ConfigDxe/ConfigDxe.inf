@@ -63,6 +63,7 @@
 
 [Protocols]
   gBcmGenetPlatformDeviceProtocolGuid             ## PRODUCES
+  gEfiHiiConfigAccessProtocolGuid                 ## PRODUCES
   gEfiPciIoProtocolGuid                           ## CONSUMES
   gRaspberryPiFirmwareProtocolGuid                ## CONSUMES
   gRaspberryPiConfigAppliedProtocolGuid           ## PRODUCES
@@ -97,6 +98,9 @@
   gRaspberryPiTokenSpaceGuid.PcdXhciPci
   gRaspberryPiTokenSpaceGuid.PcdMiniUartClockRate
   gRaspberryPiTokenSpaceGuid.PcdXhciReload
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceAuthenticationEnabled
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword
 
 [Depex]
   gPcdProtocolGuid AND gRaspberryPiFirmwareProtocolGuid

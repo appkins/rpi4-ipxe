@@ -7,16 +7,20 @@
  *
  **/
 
-#include <Uefi.h>
 #include <IndustryStandard/Bcm2711.h>
 #include <IndustryStandard/Bcm2836.h>
 #include <IndustryStandard/Bcm2836Gpio.h>
+#include <IndustryStandard/RpiDebugPort2Table.h>
 #include <IndustryStandard/RpiMbox.h>
 #include <IndustryStandard/SerialPortConsoleRedirectionTable.h>
-#include <IndustryStandard/RpiDebugPort2Table.h>
 #include <UartSelection.h>
+#include <Uefi.h>
 
+#include "ConfigDxe.h"
+#include "ConfigDxeFormSetGuid.h"
+#include <ConfigVars.h>
 #include <Library/AcpiLib.h>
+#include <Library/BaseLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
 #include <Library/DxeServicesLib.h>
@@ -25,15 +29,13 @@
 #include <Library/HiiLib.h>
 #include <Library/IoLib.h>
 #include <Library/NetLib.h>
+#include <Library/PcdLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
-#include <Library/PcdLib.h>
 #include <Protocol/AcpiTable.h>
 #include <Protocol/BcmGenetPlatformDevice.h>
+#include <Protocol/HiiConfigAccess.h>
 #include <Protocol/RpiFirmware.h>
-#include <ConfigVars.h>
-#include "ConfigDxeFormSetGuid.h"
-#include "ConfigDxe.h"
 
 #define FREQ_1_MHZ 1000000
 
@@ -41,164 +43,349 @@ extern UINT8 ConfigDxeHiiBin[];
 extern UINT8 ConfigDxeStrings[];
 
 STATIC RASPBERRY_PI_FIRMWARE_PROTOCOL *mFwProtocol;
-STATIC UINT32 mModelFamily = 0;
-STATIC UINT32 mModelInstalledMB = 0;
-STATIC UINT32 mModelRevision = 0;
-STATIC UINT32 mCoreClockRate = 0;
+STATIC UINT32                          mModelFamily      = 0;
+STATIC UINT32                          mModelInstalledMB = 0;
+STATIC UINT32                          mModelRevision    = 0;
+STATIC UINT32                          mCoreClockRate    = 0;
 
-STATIC EFI_MAC_ADDRESS  mMacAddress;
+STATIC EFI_MAC_ADDRESS mMacAddress;
+
+//
+// Forward declarations for HII Config Access Protocol functions
+//
+STATIC
+EFI_STATUS
+EFIAPI
+ExtractConfig(
+    IN CONST EFI_HII_CONFIG_ACCESS_PROTOCOL *This, IN CONST EFI_STRING Request,
+    OUT EFI_STRING *Progress, OUT EFI_STRING *Results);
+
+STATIC
+EFI_STATUS
+EFIAPI
+RouteConfig(
+    IN CONST EFI_HII_CONFIG_ACCESS_PROTOCOL *This,
+    IN CONST EFI_STRING Configuration, OUT EFI_STRING *Progress);
+
+STATIC
+EFI_STATUS
+EFIAPI
+Callback(
+    IN CONST EFI_HII_CONFIG_ACCESS_PROTOCOL *This, IN EFI_BROWSER_ACTION Action,
+    IN EFI_QUESTION_ID QuestionId, IN UINT8 Type, IN EFI_IFR_TYPE_VALUE *Value,
+    OUT EFI_BROWSER_ACTION_REQUEST *ActionRequest);
+
+//
+// HII Config Access Protocol Instance
+//
+STATIC EFI_HII_CONFIG_ACCESS_PROTOCOL gConfigAccess = {
+    ExtractConfig, RouteConfig, Callback};
+
+//
+// Driver configuration data structure
+//
+typedef struct {
+  UINTN                          Signature;
+  EFI_HII_HANDLE                 HiiHandle;
+  EFI_HANDLE                     DriverHandle;
+  EFI_HII_CONFIG_ACCESS_PROTOCOL ConfigAccess;
+} CONFIG_PRIVATE_DATA;
+
+#define CONFIG_PRIVATE_DATA_SIGNATURE SIGNATURE_32('C', 'f', 'g', 'D')
+STATIC CONFIG_PRIVATE_DATA gConfigPrivateData;
 
 /*
  * The GUID inside Platform/RaspberryPi/RPi3/AcpiTables/AcpiTables.inf and
  * Platform/RaspberryPi/RPi4/AcpiTables/AcpiTables.inf _must_ match below.
  */
 STATIC CONST EFI_GUID mAcpiTableFile = {
-  0x7E374E25, 0x8E01, 0x4FEE, { 0x87, 0xf2, 0x39, 0x0C, 0x23, 0xC6, 0x06, 0xCD }
-};
+    0x7E374E25,
+    0x8E01,
+    0x4FEE,
+    {0x87, 0xf2, 0x39, 0x0C, 0x23, 0xC6, 0x06, 0xCD}};
 
 typedef struct {
-  VENDOR_DEVICE_PATH VendorDevicePath;
+  VENDOR_DEVICE_PATH       VendorDevicePath;
   EFI_DEVICE_PATH_PROTOCOL End;
 } HII_VENDOR_DEVICE_PATH;
 
-#pragma pack (1)
+#pragma pack(1)
 typedef struct {
-  MAC_ADDR_DEVICE_PATH            MacAddrDP;
-  EFI_DEVICE_PATH_PROTOCOL        End;
+  MAC_ADDR_DEVICE_PATH     MacAddrDP;
+  EFI_DEVICE_PATH_PROTOCOL End;
 } GENET_DEVICE_PATH;
 
 typedef struct {
-  GENET_DEVICE_PATH                   DevicePath;
-  BCM_GENET_PLATFORM_DEVICE_PROTOCOL  PlatformDevice;
+  GENET_DEVICE_PATH                  DevicePath;
+  BCM_GENET_PLATFORM_DEVICE_PROTOCOL PlatformDevice;
 } GENET_DEVICE;
-#pragma pack ()
+#pragma pack()
 
 STATIC HII_VENDOR_DEVICE_PATH mVendorDevicePath = {
-  {
-    {
-      HARDWARE_DEVICE_PATH,
+    {{HARDWARE_DEVICE_PATH,
       HW_VENDOR_DP,
-      {
-        (UINT8)(sizeof (VENDOR_DEVICE_PATH)),
-        (UINT8)((sizeof (VENDOR_DEVICE_PATH)) >> 8)
-      }
-    },
-    CONFIGDXE_FORM_SET_GUID
-  },
-  {
-    END_DEVICE_PATH_TYPE,
-    END_ENTIRE_DEVICE_PATH_SUBTYPE,
-    {
-      (UINT8)(END_DEVICE_PATH_LENGTH),
-      (UINT8)((END_DEVICE_PATH_LENGTH) >> 8)
-    }
-  }
-};
+      {(UINT8)(sizeof(VENDOR_DEVICE_PATH)),
+       (UINT8)((sizeof(VENDOR_DEVICE_PATH)) >> 8)}},
+     CONFIGDXE_FORM_SET_GUID},
+    {END_DEVICE_PATH_TYPE,
+     END_ENTIRE_DEVICE_PATH_SUBTYPE,
+     {(UINT8)(END_DEVICE_PATH_LENGTH),
+      (UINT8)((END_DEVICE_PATH_LENGTH) >> 8)}}};
 
 STATIC GENET_DEVICE mGenetDevice = {
-  {
-    {
-      {
-        MESSAGING_DEVICE_PATH,
-        MSG_MAC_ADDR_DP,
-        {
-          (UINT8)(sizeof (MAC_ADDR_DEVICE_PATH)),
-          (UINT8)((sizeof (MAC_ADDR_DEVICE_PATH)) >> 8)
-        }
-      },
-      {{ 0 }},
-      NET_IFTYPE_ETHERNET
-    },
-    {
-      END_DEVICE_PATH_TYPE,
+    {{{MESSAGING_DEVICE_PATH,
+       MSG_MAC_ADDR_DP,
+       {(UINT8)(sizeof(MAC_ADDR_DEVICE_PATH)),
+        (UINT8)((sizeof(MAC_ADDR_DEVICE_PATH)) >> 8)}},
+      {{0}},
+      NET_IFTYPE_ETHERNET},
+     {END_DEVICE_PATH_TYPE,
       END_ENTIRE_DEVICE_PATH_SUBTYPE,
-      {
-        sizeof (EFI_DEVICE_PATH_PROTOCOL),
-        0
-      }
-    }
-  },
-  {
-    GENET_BASE_ADDRESS,
-    {{ 0 }}
-  }
-};
-
+      {sizeof(EFI_DEVICE_PATH_PROTOCOL), 0}}},
+    {GENET_BASE_ADDRESS, {{0}}}};
 
 STATIC
-VOID
-EFIAPI
-RegisterDevices (
-  EFI_EVENT           Event,
-  VOID                *Context
-  )
+VOID EFIAPI RegisterDevices(EFI_EVENT Event, VOID *Context)
 {
-  EFI_HANDLE  Handle;
-  EFI_STATUS  Status;
+  EFI_HANDLE Handle;
+  EFI_STATUS Status;
 
   if (mModelFamily == 4) {
-    DEBUG ((DEBUG_INFO, "GENET: MAC address %02X:%02X:%02X:%02X:%02X:%02X\n",
-            mMacAddress.Addr[0], mMacAddress.Addr[1], mMacAddress.Addr[2],
-            mMacAddress.Addr[3], mMacAddress.Addr[4], mMacAddress.Addr[5]));
+    DEBUG(
+        (DEBUG_INFO, "GENET: MAC address %02X:%02X:%02X:%02X:%02X:%02X\n",
+         mMacAddress.Addr[0], mMacAddress.Addr[1], mMacAddress.Addr[2],
+         mMacAddress.Addr[3], mMacAddress.Addr[4], mMacAddress.Addr[5]));
 
-    CopyMem (&mGenetDevice.DevicePath.MacAddrDP.MacAddress, mMacAddress.Addr,
-      NET_ETHER_ADDR_LEN);
-    CopyMem (&mGenetDevice.PlatformDevice.MacAddress, mMacAddress.Addr,
-      NET_ETHER_ADDR_LEN);
+    CopyMem(
+        &mGenetDevice.DevicePath.MacAddrDP.MacAddress, mMacAddress.Addr,
+        NET_ETHER_ADDR_LEN);
+    CopyMem(
+        &mGenetDevice.PlatformDevice.MacAddress, mMacAddress.Addr,
+        NET_ETHER_ADDR_LEN);
 
     Handle = NULL;
-    Status = gBS->InstallMultipleProtocolInterfaces (&Handle,
-                    &gEfiDevicePathProtocolGuid,          &mGenetDevice.DevicePath,
-                    &gBcmGenetPlatformDeviceProtocolGuid, &mGenetDevice.PlatformDevice,
-                    NULL);
-    ASSERT_EFI_ERROR (Status);
+    Status = gBS->InstallMultipleProtocolInterfaces(
+        &Handle, &gEfiDevicePathProtocolGuid, &mGenetDevice.DevicePath,
+        &gBcmGenetPlatformDeviceProtocolGuid, &mGenetDevice.PlatformDevice,
+        NULL);
+    ASSERT_EFI_ERROR(Status);
   }
 }
 
-STATIC EFI_STATUS
-InstallHiiPages (
-  VOID
-  )
+/**
+  This function processes the results of changes in configuration.
+
+  @param  This                   Points to the EFI_HII_CONFIG_ACCESS_PROTOCOL.
+  @param  Configuration          A null-terminated Unicode string in
+<ConfigResp> format.
+  @param  Progress               A pointer to a string filled in with the offset
+of the most recent '&' before the first failing name/value pair (or the
+beginning of the string if the failure is in the first name/value pair) or the
+terminating NULL if all was successful.
+
+  @retval EFI_SUCCESS            The Results is processed successfully.
+  @retval EFI_INVALID_PARAMETER  Configuration is NULL.
+  @retval EFI_NOT_FOUND          Routing data doesn't match any storage in this
+                                 driver.
+
+**/
+STATIC
+EFI_STATUS
+EFIAPI
+RouteConfig(
+    IN CONST EFI_HII_CONFIG_ACCESS_PROTOCOL *This,
+    IN CONST EFI_STRING Configuration, OUT EFI_STRING *Progress)
+{
+  if (Configuration == NULL || Progress == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  *Progress = Configuration;
+
+  return EFI_NOT_FOUND;
+}
+
+/**
+  This function processes the results of changes in configuration.
+
+  @param  This                   Points to the EFI_HII_CONFIG_ACCESS_PROTOCOL.
+  @param  Request                A null-terminated Unicode string in
+                                 <ConfigRequest> format.
+  @param  Progress               On return, points to a character in the Request
+                                 string. Points to the string's null terminator
+if request was successful. Points to the most recent
+                                 '&' before the first failing name/value pair
+(or the beginning of the string if the failure is in the first name/value pair)
+if the request was not successful.
+  @param  Results                A null-terminated Unicode string in
+                                 <ConfigAltResp> format which has all values
+filled in for the names in the Request string. String to be allocated by the
+called function.
+
+  @retval EFI_SUCCESS            The Results is filled with the requested
+values.
+  @retval EFI_OUT_OF_RESOURCES   Not enough memory to store the results.
+  @retval EFI_INVALID_PARAMETER  Request is illegal syntax, or unknown name.
+  @retval EFI_NOT_FOUND          Routing data doesn't match any storage in this
+                                 driver.
+
+**/
+STATIC
+EFI_STATUS
+EFIAPI
+ExtractConfig(
+    IN CONST EFI_HII_CONFIG_ACCESS_PROTOCOL *This, IN CONST EFI_STRING Request,
+    OUT EFI_STRING *Progress, OUT EFI_STRING *Results)
+{
+  if (Progress == NULL || Results == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  *Progress = Request;
+  *Results  = NULL;
+
+  return EFI_NOT_FOUND;
+}
+
+/**
+  This function processes the results of changes in configuration.
+
+  @param  This                   Points to the EFI_HII_CONFIG_ACCESS_PROTOCOL.
+  @param  Action                 Specifies the type of action taken by the
+browser.
+  @param  QuestionId             A unique value which is sent to the original
+                                 exporting driver so that it can identify the
+type of data to expect.
+  @param  Type                   The type of value for the question.
+  @param  Value                  A pointer to the data being sent to the
+original exporting driver.
+  @param  ActionRequest          On return, points to the action requested by
+the callback function.
+
+  @retval EFI_SUCCESS            The callback successfully handled the action.
+  @retval EFI_OUT_OF_RESOURCES   Not enough storage is available to hold the
+                                 variable and its data.
+  @retval EFI_DEVICE_ERROR       The variable could not be saved.
+  @retval EFI_UNSUPPORTED        The specified Action is not supported by the
+                                 callback.
+
+**/
+STATIC
+EFI_STATUS
+EFIAPI
+Callback(
+    IN CONST EFI_HII_CONFIG_ACCESS_PROTOCOL *This, IN EFI_BROWSER_ACTION Action,
+    IN EFI_QUESTION_ID QuestionId, IN UINT8 Type, IN EFI_IFR_TYPE_VALUE *Value,
+    OUT EFI_BROWSER_ACTION_REQUEST *ActionRequest)
+{
+  EFI_STATUS Status;
+  UINTN      Size;
+
+  if (ActionRequest != NULL) {
+    *ActionRequest = EFI_BROWSER_ACTION_REQUEST_NONE;
+  }
+
+  if (Action == EFI_BROWSER_ACTION_CHANGING) {
+    //
+    // Handle form data saving for Redfish configuration
+    // Since we're using EFI variables directly for Redfish service discovery,
+    // the HII callback doesn't need to handle these string values
+    //
+    switch (QuestionId) {
+    case 0x1201: // RedfishServiceAuthenticationEnabled question ID
+      if (Type == EFI_IFR_TYPE_NUM_SIZE_32) {
+        Size   = sizeof(UINT32);
+        Status = gRT->SetVariable(
+            L"RedfishServiceAuthenticationEnabled", &gConfigDxeFormSetGuid,
+            EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS |
+                EFI_VARIABLE_RUNTIME_ACCESS,
+            Size, &Value->u32);
+        if (EFI_ERROR(Status)) {
+          DEBUG(
+              (DEBUG_ERROR,
+               "Failed to set RedfishServiceAuthenticationEnabled variable: "
+               "%r\n",
+               Status));
+          return Status;
+        }
+      }
+      break;
+
+    case 0x1204: // RedfishServiceIpPort question ID
+      Size   = sizeof(UINT16);
+      Status = gRT->SetVariable(
+          L"RedfishServiceIpPort", &gConfigDxeFormSetGuid,
+          EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS |
+              EFI_VARIABLE_RUNTIME_ACCESS,
+          Size, &Value->u16);
+      if (EFI_ERROR(Status)) {
+        DEBUG(
+            (DEBUG_ERROR, "Failed to set RedfishServiceIpPort variable: %r\n",
+             Status));
+        return Status;
+      }
+      break;
+
+    default:
+      return EFI_UNSUPPORTED;
+    }
+
+    if (ActionRequest != NULL) {
+      *ActionRequest = EFI_BROWSER_ACTION_REQUEST_SUBMIT;
+    }
+  }
+
+  return EFI_SUCCESS;
+}
+
+STATIC EFI_STATUS InstallHiiPages(VOID)
 {
   EFI_STATUS     Status;
   EFI_HII_HANDLE HiiHandle;
   EFI_HANDLE     DriverHandle;
 
   DriverHandle = NULL;
-  Status = gBS->InstallMultipleProtocolInterfaces (&DriverHandle,
-                  &gEfiDevicePathProtocolGuid,
-                  &mVendorDevicePath,
-                  NULL);
-  if (EFI_ERROR (Status)) {
+  Status       = gBS->InstallMultipleProtocolInterfaces(
+      &DriverHandle, &gEfiDevicePathProtocolGuid, &mVendorDevicePath,
+      &gEfiHiiConfigAccessProtocolGuid, &gConfigAccess, NULL);
+  if (EFI_ERROR(Status)) {
     return Status;
   }
 
-  HiiHandle = HiiAddPackages (&gConfigDxeFormSetGuid,
-                DriverHandle,
-                ConfigDxeStrings,
-                ConfigDxeHiiBin,
-                NULL);
+  HiiHandle = HiiAddPackages(
+      &gConfigDxeFormSetGuid, DriverHandle, ConfigDxeStrings, ConfigDxeHiiBin,
+      NULL);
 
   if (HiiHandle == NULL) {
-    gBS->UninstallMultipleProtocolInterfaces (DriverHandle,
-           &gEfiDevicePathProtocolGuid,
-           &mVendorDevicePath,
-           NULL);
+    gBS->UninstallMultipleProtocolInterfaces(
+        DriverHandle, &gEfiDevicePathProtocolGuid, &mVendorDevicePath,
+        &gEfiHiiConfigAccessProtocolGuid, &gConfigAccess, NULL);
     return EFI_OUT_OF_RESOURCES;
   }
+
+  //
+  // Initialize private data
+  //
+  gConfigPrivateData.Signature    = CONFIG_PRIVATE_DATA_SIGNATURE;
+  gConfigPrivateData.HiiHandle    = HiiHandle;
+  gConfigPrivateData.DriverHandle = DriverHandle;
+  CopyMem(
+      &gConfigPrivateData.ConfigAccess, &gConfigAccess,
+      sizeof(EFI_HII_CONFIG_ACCESS_PROTOCOL));
+
   return EFI_SUCCESS;
 }
 
-
-STATIC EFI_STATUS
-SetupVariables (
-  VOID
-  )
+STATIC EFI_STATUS SetupVariables(VOID)
 {
   UINTN      Size;
   UINT8      Var8;
+  UINT16     Var16;
   UINT32     Var32;
-  CHAR16     AssetTagVar[ASSET_TAG_STR_STORAGE_SIZE] = L"";
+  CHAR16     AssetTagVar[ASSET_TAG_STR_STORAGE_SIZE]                  = L"";
+  CHAR8      RedfishIpAddressVar[REDFISH_IP_ADDRESS_STR_STORAGE_SIZE] = "";
+  CHAR8      RedfishUserIdVar[REDFISH_USERID_STR_STORAGE_SIZE]        = "";
+  CHAR8      RedfishPasswordVar[REDFISH_PASSWORD_STR_STORAGE_SIZE]    = "";
   EFI_STATUS Status;
 
   /*
@@ -206,71 +393,66 @@ SetupVariables (
    * If we don't, forms won't be able to update.
    */
 
-  Size = sizeof (UINT32);
-  Status = gRT->GetVariable (L"CpuClock",
-                  &gConfigDxeFormSetGuid,
-                  NULL, &Size, &Var32);
-  if (EFI_ERROR (Status)) {
-    Status = PcdSet32S (PcdCpuClock, PcdGet32 (PcdCpuClock));
-    ASSERT_EFI_ERROR (Status);
+  Size   = sizeof(UINT32);
+  Status = gRT->GetVariable(
+      L"CpuClock", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+  if (EFI_ERROR(Status)) {
+    Status = PcdSet32S(PcdCpuClock, PcdGet32(PcdCpuClock));
+    ASSERT_EFI_ERROR(Status);
   }
 
-  Size = sizeof (UINT32);
-  Status = gRT->GetVariable (L"CustomCpuClock",
-                             &gConfigDxeFormSetGuid,
-                             NULL, &Size, &Var32);
-  if (EFI_ERROR (Status)) {
-    Status = PcdSet32S (PcdCustomCpuClock, PcdGet32 (PcdCustomCpuClock));
-    ASSERT_EFI_ERROR (Status);
+  Size   = sizeof(UINT32);
+  Status = gRT->GetVariable(
+      L"CustomCpuClock", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+  if (EFI_ERROR(Status)) {
+    Status = PcdSet32S(PcdCustomCpuClock, PcdGet32(PcdCustomCpuClock));
+    ASSERT_EFI_ERROR(Status);
   }
 
   if (mModelFamily >= 4 && mModelInstalledMB > 3 * 1024) {
     /*
      * This allows changing PcdRamLimitTo3GB in forms.
      */
-    Status = PcdSet32S (PcdRamMoreThan3GB, 1);
-    ASSERT_EFI_ERROR (Status);
+    Status = PcdSet32S(PcdRamMoreThan3GB, 1);
+    ASSERT_EFI_ERROR(Status);
 
-    Size = sizeof (UINT32);
-    Status = gRT->GetVariable (L"RamLimitTo3GB",
-                               &gConfigDxeFormSetGuid,
-                               NULL, &Size, &Var32);
-    if (EFI_ERROR (Status)) {
-      Status = PcdSet32S (PcdRamLimitTo3GB, PcdGet32 (PcdRamLimitTo3GB));
-      ASSERT_EFI_ERROR (Status);
+    Size   = sizeof(UINT32);
+    Status = gRT->GetVariable(
+        L"RamLimitTo3GB", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+    if (EFI_ERROR(Status)) {
+      Status = PcdSet32S(PcdRamLimitTo3GB, PcdGet32(PcdRamLimitTo3GB));
+      ASSERT_EFI_ERROR(Status);
     }
-  } else {
-    Status = PcdSet32S (PcdRamMoreThan3GB, 0);
-    ASSERT_EFI_ERROR (Status);
-    Status = PcdSet32S (PcdRamLimitTo3GB, 0);
-    ASSERT_EFI_ERROR (Status);
+  }
+  else {
+    Status = PcdSet32S(PcdRamMoreThan3GB, 0);
+    ASSERT_EFI_ERROR(Status);
+    Status = PcdSet32S(PcdRamLimitTo3GB, 0);
+    ASSERT_EFI_ERROR(Status);
   }
 
-  Size = sizeof (UINT32);
-  Status = gRT->GetVariable (L"SystemTableMode",
-                  &gConfigDxeFormSetGuid,
-                  NULL, &Size, &Var32);
-  if (EFI_ERROR (Status)) {
-    Status = PcdSet32S (PcdSystemTableMode, PcdGet32 (PcdSystemTableMode));
-    ASSERT_EFI_ERROR (Status);
+  Size   = sizeof(UINT32);
+  Status = gRT->GetVariable(
+      L"SystemTableMode", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+  if (EFI_ERROR(Status)) {
+    Status = PcdSet32S(PcdSystemTableMode, PcdGet32(PcdSystemTableMode));
+    ASSERT_EFI_ERROR(Status);
   }
 
-  Size = sizeof (UINT32);
-  Status = gRT->GetVariable (L"FanOnGpio",
-                  &gConfigDxeFormSetGuid,
-                  NULL, &Size, &Var32);
-  if (EFI_ERROR (Status)) {
-    Status = PcdSet32S (PcdFanOnGpio, PcdGet32 (PcdFanOnGpio));
-    ASSERT_EFI_ERROR (Status);
+  Size   = sizeof(UINT32);
+  Status = gRT->GetVariable(
+      L"FanOnGpio", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+  if (EFI_ERROR(Status)) {
+    Status = PcdSet32S(PcdFanOnGpio, PcdGet32(PcdFanOnGpio));
+    ASSERT_EFI_ERROR(Status);
   }
 
-  Size = sizeof (UINT32);
-  Status = gRT->GetVariable (L"FanTemp",
-                  &gConfigDxeFormSetGuid,
-                  NULL, &Size, &Var32);
-  if (EFI_ERROR (Status)) {
-    Status = PcdSet32S (PcdFanTemp, PcdGet32 (PcdFanTemp));
-    ASSERT_EFI_ERROR (Status);
+  Size = sizeof(UINT32);
+  Status =
+      gRT->GetVariable(L"FanTemp", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+  if (EFI_ERROR(Status)) {
+    Status = PcdSet32S(PcdFanTemp, PcdGet32(PcdFanTemp));
+    ASSERT_EFI_ERROR(Status);
   }
 
   if (mModelFamily >= 4) {
@@ -278,193 +460,249 @@ SetupVariables (
       /*
        * Enable PCIe by default on CM4
        */
-      Status = PcdSet32S (PcdXhciPci, 2);
-      ASSERT_EFI_ERROR (Status);
-    } else {
-      Size = sizeof (UINT32);
-      Status = gRT->GetVariable (L"XhciPci",
-                                 &gConfigDxeFormSetGuid,
-                                 NULL, &Size, &Var32);
-      if (EFI_ERROR (Status) || (Var32 == 0)) {
+      Status = PcdSet32S(PcdXhciPci, 2);
+      ASSERT_EFI_ERROR(Status);
+    }
+    else {
+      Size   = sizeof(UINT32);
+      Status = gRT->GetVariable(
+          L"XhciPci", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+      if (EFI_ERROR(Status) || (Var32 == 0)) {
         /*
          * Enable XHCI by default
          */
-        Status = PcdSet32S (PcdXhciPci, 0);
-        ASSERT_EFI_ERROR (Status);
-      } else {
+        Status = PcdSet32S(PcdXhciPci, 0);
+        ASSERT_EFI_ERROR(Status);
+      }
+      else {
         /*
          * Enable PCIe
          */
-        Status = PcdSet32S (PcdXhciPci, 1);
-        ASSERT_EFI_ERROR (Status);
+        Status = PcdSet32S(PcdXhciPci, 1);
+        ASSERT_EFI_ERROR(Status);
       }
 
-      Size = sizeof (UINT32);
-      Status = gRT->GetVariable (L"XhciReload",
-                                 &gConfigDxeFormSetGuid,
-                                 NULL, &Size, &Var32);
-      if (EFI_ERROR (Status)) {
-        Status = PcdSet32S (PcdXhciReload, PcdGet32 (PcdXhciReload));
-        ASSERT_EFI_ERROR (Status);
+      Size   = sizeof(UINT32);
+      Status = gRT->GetVariable(
+          L"XhciReload", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+      if (EFI_ERROR(Status)) {
+        Status = PcdSet32S(PcdXhciReload, PcdGet32(PcdXhciReload));
+        ASSERT_EFI_ERROR(Status);
       }
-
     }
-  } else {
+  }
+  else {
     /*
      * Disable PCIe and XHCI
      */
-    Status = PcdSet32S (PcdXhciPci, 0);
-    ASSERT_EFI_ERROR (Status);
+    Status = PcdSet32S(PcdXhciPci, 0);
+    ASSERT_EFI_ERROR(Status);
   }
 
-  Size = sizeof (AssetTagVar);
-  Status = gRT->GetVariable (L"AssetTag",
-                  &gConfigDxeFormSetGuid,
-                  NULL, &Size, AssetTagVar);
+  Size   = sizeof(AssetTagVar);
+  Status = gRT->GetVariable(
+      L"AssetTag", &gConfigDxeFormSetGuid, NULL, &Size, AssetTagVar);
 
-  if (EFI_ERROR (Status)) {
-    Status = gRT->SetVariable (
-                    L"AssetTag",
-                    &gConfigDxeFormSetGuid,
-                    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-                    sizeof (AssetTagVar),
-                    AssetTagVar
-                    );
+  if (EFI_ERROR(Status)) {
+    Status = gRT->SetVariable(
+        L"AssetTag", &gConfigDxeFormSetGuid,
+        EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS |
+            EFI_VARIABLE_RUNTIME_ACCESS,
+        sizeof(AssetTagVar), AssetTagVar);
   }
 
-  Size = sizeof (UINT32);
-  Status = gRT->GetVariable (L"SdIsArasan",
-                  &gConfigDxeFormSetGuid,
-                  NULL, &Size, &Var32);
-  if (EFI_ERROR (Status)) {
-    Status = PcdSet32S (PcdSdIsArasan, PcdGet32 (PcdSdIsArasan));
-    ASSERT_EFI_ERROR (Status);
+  Size   = sizeof(UINT32);
+  Status = gRT->GetVariable(
+      L"SdIsArasan", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+  if (EFI_ERROR(Status)) {
+    Status = PcdSet32S(PcdSdIsArasan, PcdGet32(PcdSdIsArasan));
+    ASSERT_EFI_ERROR(Status);
   }
 
-  Size = sizeof (UINT32);
-  Status = gRT->GetVariable (L"MmcDisableMulti",
-                  &gConfigDxeFormSetGuid,
-                  NULL, &Size, &Var32);
-  if (EFI_ERROR (Status)) {
-    Status = PcdSet32S (PcdMmcDisableMulti, PcdGet32 (PcdMmcDisableMulti));
-    ASSERT_EFI_ERROR (Status);
+  Size   = sizeof(UINT32);
+  Status = gRT->GetVariable(
+      L"MmcDisableMulti", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+  if (EFI_ERROR(Status)) {
+    Status = PcdSet32S(PcdMmcDisableMulti, PcdGet32(PcdMmcDisableMulti));
+    ASSERT_EFI_ERROR(Status);
   }
 
-  Size = sizeof (UINT32);
-  Status = gRT->GetVariable (L"MmcForce1Bit",
-                  &gConfigDxeFormSetGuid,
-                  NULL, &Size, &Var32);
-  if (EFI_ERROR (Status)) {
-    Status = PcdSet32S (PcdMmcForce1Bit, PcdGet32 (PcdMmcForce1Bit));
-    ASSERT_EFI_ERROR (Status);
+  Size   = sizeof(UINT32);
+  Status = gRT->GetVariable(
+      L"MmcForce1Bit", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+  if (EFI_ERROR(Status)) {
+    Status = PcdSet32S(PcdMmcForce1Bit, PcdGet32(PcdMmcForce1Bit));
+    ASSERT_EFI_ERROR(Status);
   }
 
-  Size = sizeof (UINT32);
-  Status = gRT->GetVariable (L"MmcForceDefaultSpeed",
-                  &gConfigDxeFormSetGuid,
-                  NULL, &Size, &Var32);
-  if (EFI_ERROR (Status)) {
-    Status = PcdSet32S (PcdMmcForceDefaultSpeed, PcdGet32 (PcdMmcForceDefaultSpeed));
-    ASSERT_EFI_ERROR (Status);
+  Size   = sizeof(UINT32);
+  Status = gRT->GetVariable(
+      L"MmcForceDefaultSpeed", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+  if (EFI_ERROR(Status)) {
+    Status =
+        PcdSet32S(PcdMmcForceDefaultSpeed, PcdGet32(PcdMmcForceDefaultSpeed));
+    ASSERT_EFI_ERROR(Status);
   }
 
-  Size = sizeof (UINT32);
-  Status = gRT->GetVariable (L"MmcSdDefaultSpeedMHz",
-                  &gConfigDxeFormSetGuid,
-                  NULL, &Size, &Var32);
-  if (EFI_ERROR (Status)) {
-    Status = PcdSet32S (PcdMmcSdDefaultSpeedMHz, PcdGet32 (PcdMmcSdDefaultSpeedMHz));
-    ASSERT_EFI_ERROR (Status);
+  Size   = sizeof(UINT32);
+  Status = gRT->GetVariable(
+      L"MmcSdDefaultSpeedMHz", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+  if (EFI_ERROR(Status)) {
+    Status =
+        PcdSet32S(PcdMmcSdDefaultSpeedMHz, PcdGet32(PcdMmcSdDefaultSpeedMHz));
+    ASSERT_EFI_ERROR(Status);
   }
 
-  Size = sizeof (UINT32);
-  Status = gRT->GetVariable (L"MmcSdHighSpeedMHz",
-                  &gConfigDxeFormSetGuid,
-                  NULL, &Size, &Var32);
-  if (EFI_ERROR (Status)) {
-    Status = PcdSet32S (PcdMmcSdHighSpeedMHz, PcdGet32 (PcdMmcSdHighSpeedMHz));
-    ASSERT_EFI_ERROR (Status);
+  Size   = sizeof(UINT32);
+  Status = gRT->GetVariable(
+      L"MmcSdHighSpeedMHz", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+  if (EFI_ERROR(Status)) {
+    Status = PcdSet32S(PcdMmcSdHighSpeedMHz, PcdGet32(PcdMmcSdHighSpeedMHz));
+    ASSERT_EFI_ERROR(Status);
   }
 
-  Size = sizeof (UINT32);
-  Status = gRT->GetVariable (L"MmcEnableDma",
-                  &gConfigDxeFormSetGuid,
-                  NULL, &Size, &Var32);
-  if (EFI_ERROR (Status)) {
-    Status = PcdSet32S (PcdMmcEnableDma, PcdGet32 (PcdMmcEnableDma));
-    ASSERT_EFI_ERROR (Status);
+  Size   = sizeof(UINT32);
+  Status = gRT->GetVariable(
+      L"MmcEnableDma", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+  if (EFI_ERROR(Status)) {
+    Status = PcdSet32S(PcdMmcEnableDma, PcdGet32(PcdMmcEnableDma));
+    ASSERT_EFI_ERROR(Status);
   }
 
-  Size = sizeof (UINT32);
-  Status = gRT->GetVariable (L"DebugEnableJTAG",
-                  &gConfigDxeFormSetGuid,
-                  NULL, &Size, &Var32);
-  if (EFI_ERROR (Status)) {
-    Status = PcdSet32S (PcdDebugEnableJTAG, PcdGet32 (PcdDebugEnableJTAG));
-    ASSERT_EFI_ERROR (Status);
+  Size   = sizeof(UINT32);
+  Status = gRT->GetVariable(
+      L"DebugEnableJTAG", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+  if (EFI_ERROR(Status)) {
+    Status = PcdSet32S(PcdDebugEnableJTAG, PcdGet32(PcdDebugEnableJTAG));
+    ASSERT_EFI_ERROR(Status);
   }
 
-  Size = sizeof (UINT8);
-  Status = gRT->GetVariable (L"DisplayEnableScaledVModes",
-                  &gConfigDxeFormSetGuid,
-                  NULL, &Size, &Var8);
-  if (EFI_ERROR (Status)) {
-    Status = PcdSet8S (PcdDisplayEnableScaledVModes, PcdGet8 (PcdDisplayEnableScaledVModes));
-    ASSERT_EFI_ERROR (Status);
+  Size   = sizeof(UINT8);
+  Status = gRT->GetVariable(
+      L"DisplayEnableScaledVModes", &gConfigDxeFormSetGuid, NULL, &Size, &Var8);
+  if (EFI_ERROR(Status)) {
+    Status = PcdSet8S(
+        PcdDisplayEnableScaledVModes, PcdGet8(PcdDisplayEnableScaledVModes));
+    ASSERT_EFI_ERROR(Status);
   }
 
-  Size = sizeof (UINT32);
-  Status = gRT->GetVariable (L"DisplayEnableSShot",
-                  &gConfigDxeFormSetGuid,
-                  NULL, &Size, &Var32);
-  if (EFI_ERROR (Status)) {
-    Status = PcdSet32S (PcdDisplayEnableSShot, PcdGet32 (PcdDisplayEnableSShot));
-    ASSERT_EFI_ERROR (Status);
+  Size   = sizeof(UINT32);
+  Status = gRT->GetVariable(
+      L"DisplayEnableSShot", &gConfigDxeFormSetGuid, NULL, &Size, &Var32);
+  if (EFI_ERROR(Status)) {
+    Status = PcdSet32S(PcdDisplayEnableSShot, PcdGet32(PcdDisplayEnableSShot));
+    ASSERT_EFI_ERROR(Status);
+  }
+
+  //
+  // Redfish configuration variables
+  //
+  Size   = sizeof(RedfishIpAddressVar);
+  Status = gRT->GetVariable(
+      L"RedfishServiceIpAddress", &gConfigDxeFormSetGuid, NULL, &Size,
+      RedfishIpAddressVar);
+  if (EFI_ERROR(Status)) {
+    // Set default IP address (10.0.198.24 for simulator)
+    AsciiStrCpyS(
+        RedfishIpAddressVar, REDFISH_IP_ADDRESS_STR_STORAGE_SIZE,
+        "10.0.198.24");
+    Status = gRT->SetVariable(
+        L"RedfishServiceIpAddress", &gConfigDxeFormSetGuid,
+        EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS |
+            EFI_VARIABLE_RUNTIME_ACCESS,
+        sizeof(RedfishIpAddressVar), RedfishIpAddressVar);
+  }
+
+  Size   = sizeof(UINT16);
+  Status = gRT->GetVariable(
+      L"RedfishServiceIpPort", &gConfigDxeFormSetGuid, NULL, &Size, &Var16);
+  if (EFI_ERROR(Status)) {
+    // Set default port (5000 for simulator)
+    Var16  = 5000;
+    Status = gRT->SetVariable(
+        L"RedfishServiceIpPort", &gConfigDxeFormSetGuid,
+        EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS |
+            EFI_VARIABLE_RUNTIME_ACCESS,
+        sizeof(UINT16), &Var16);
+  }
+
+  Size   = sizeof(UINT8);
+  Status = gRT->GetVariable(
+      L"RedfishServiceAuthenticationEnabled", &gConfigDxeFormSetGuid, NULL,
+      &Size, &Var8);
+  if (EFI_ERROR(Status)) {
+    Status = PcdSet8S(
+        PcdRedfishServiceAuthenticationEnabled,
+        PcdGet8(PcdRedfishServiceAuthenticationEnabled));
+    ASSERT_EFI_ERROR(Status);
+  }
+
+  Size   = sizeof(RedfishUserIdVar);
+  Status = gRT->GetVariable(
+      L"RedfishServiceUserId", &gConfigDxeFormSetGuid, NULL, &Size,
+      RedfishUserIdVar);
+  if (EFI_ERROR(Status)) {
+    // Set empty string as default
+    Status = gRT->SetVariable(
+        L"RedfishServiceUserId", &gConfigDxeFormSetGuid,
+        EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS |
+            EFI_VARIABLE_RUNTIME_ACCESS,
+        sizeof(RedfishUserIdVar), RedfishUserIdVar);
+  }
+
+  Size   = sizeof(RedfishPasswordVar);
+  Status = gRT->GetVariable(
+      L"RedfishServicePassword", &gConfigDxeFormSetGuid, NULL, &Size,
+      RedfishPasswordVar);
+  if (EFI_ERROR(Status)) {
+    // Set empty string as default
+    Status = gRT->SetVariable(
+        L"RedfishServicePassword", &gConfigDxeFormSetGuid,
+        EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS |
+            EFI_VARIABLE_RUNTIME_ACCESS,
+        sizeof(RedfishPasswordVar), RedfishPasswordVar);
   }
 
   if (mModelFamily == 4) {
     //
     // Get the MAC address from the firmware.
     //
-    Status = mFwProtocol->GetMacAddress (mMacAddress.Addr);
-    if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_WARN, "%a: failed to retrieve MAC address\n", __func__));
+    Status = mFwProtocol->GetMacAddress(mMacAddress.Addr);
+    if (EFI_ERROR(Status)) {
+      DEBUG((DEBUG_WARN, "%a: failed to retrieve MAC address\n", __func__));
     }
   }
 
   return EFI_SUCCESS;
 }
 
-
-STATIC VOID
-ApplyVariables (
-  VOID
-  )
+STATIC VOID ApplyVariables(VOID)
 {
-  UINTN Gpio34Group;
-  UINTN Gpio48Group;
+  UINTN      Gpio34Group;
+  UINTN      Gpio48Group;
   EFI_STATUS Status;
-  UINT32 CpuClock = PcdGet32 (PcdCpuClock);
-  UINT32 CustomCpuClock = PcdGet32 (PcdCustomCpuClock);
-  UINT32 Rate = 0;
-  UINT32 FanOnGpio = PcdGet32 (PcdFanOnGpio);
+  UINT32     CpuClock       = PcdGet32(PcdCpuClock);
+  UINT32     CustomCpuClock = PcdGet32(PcdCustomCpuClock);
+  UINT32     Rate           = 0;
+  UINT32     FanOnGpio      = PcdGet32(PcdFanOnGpio);
 
   switch (CpuClock) {
   case CHIPSET_CPU_CLOCK_LOW:
-    Rate = FixedPcdGet32 (PcdCpuLowSpeedMHz) * FREQ_1_MHZ;
+    Rate = FixedPcdGet32(PcdCpuLowSpeedMHz) * FREQ_1_MHZ;
     break;
   case CHIPSET_CPU_CLOCK_DEFAULT:
     /*
-     * What the Raspberry Pi Foundation calls "max clock rate" is really the default value
-     * from: https://www.raspberrypi.org/documentation/configuration/config-txt/overclocking.md
+     * What the Raspberry Pi Foundation calls "max clock rate" is really the
+     * default value from:
+     * https://www.raspberrypi.org/documentation/configuration/config-txt/overclocking.md
      */
-    Status = mFwProtocol->GetMaxClockRate (RPI_MBOX_CLOCK_RATE_ARM, &Rate);
+    Status = mFwProtocol->GetMaxClockRate(RPI_MBOX_CLOCK_RATE_ARM, &Rate);
     if (Status != EFI_SUCCESS) {
-      DEBUG ((DEBUG_ERROR, "Couldn't read default CPU speed %r\n", Status));
+      DEBUG((DEBUG_ERROR, "Couldn't read default CPU speed %r\n", Status));
     }
     break;
   case CHIPSET_CPU_CLOCK_MAX:
-    Rate = FixedPcdGet32 (PcdCpuMaxSpeedMHz) * FREQ_1_MHZ;
+    Rate = FixedPcdGet32(PcdCpuMaxSpeedMHz) * FREQ_1_MHZ;
     break;
   case CHIPSET_CPU_CLOCK_CUSTOM:
     Rate = CustomCpuClock * FREQ_1_MHZ;
@@ -472,29 +710,31 @@ ApplyVariables (
   }
 
   if (Rate != 0) {
-    DEBUG ((DEBUG_INFO, "Setting CPU speed to %u MHz\n", Rate / FREQ_1_MHZ));
-    Status = mFwProtocol->SetClockRate (RPI_MBOX_CLOCK_RATE_ARM, Rate, 1);
+    DEBUG((DEBUG_INFO, "Setting CPU speed to %u MHz\n", Rate / FREQ_1_MHZ));
+    Status = mFwProtocol->SetClockRate(RPI_MBOX_CLOCK_RATE_ARM, Rate, 1);
     if (Status != EFI_SUCCESS) {
-      DEBUG ((DEBUG_ERROR, "Couldn't set the CPU speed: %r\n", Status));
-    } else {
-      Status = PcdSet32S (PcdCustomCpuClock, Rate / FREQ_1_MHZ);
-      ASSERT_EFI_ERROR (Status);
+      DEBUG((DEBUG_ERROR, "Couldn't set the CPU speed: %r\n", Status));
+    }
+    else {
+      Status = PcdSet32S(PcdCustomCpuClock, Rate / FREQ_1_MHZ);
+      ASSERT_EFI_ERROR(Status);
     }
   }
 
-  Status = mFwProtocol->GetClockRate (RPI_MBOX_CLOCK_RATE_ARM, &Rate);
+  Status = mFwProtocol->GetClockRate(RPI_MBOX_CLOCK_RATE_ARM, &Rate);
   if (Status != EFI_SUCCESS) {
-    DEBUG ((DEBUG_ERROR, "Couldn't get the CPU speed: %r\n", Status));
-  } else {
-    DEBUG ((DEBUG_INFO, "Current CPU speed is %u MHz\n", Rate / FREQ_1_MHZ));
+    DEBUG((DEBUG_ERROR, "Couldn't get the CPU speed: %r\n", Status));
+  }
+  else {
+    DEBUG((DEBUG_INFO, "Current CPU speed is %u MHz\n", Rate / FREQ_1_MHZ));
   }
 
-  if (mModelFamily >= 4 && PcdGet32 (PcdRamMoreThan3GB) != 0 &&
-      PcdGet32 (PcdRamLimitTo3GB) == 0) {
+  if (mModelFamily >= 4 && PcdGet32(PcdRamMoreThan3GB) != 0 &&
+      PcdGet32(PcdRamLimitTo3GB) == 0) {
     UINT64 SystemMemorySize;
     UINT64 SystemMemorySizeBelow4GB;
 
-    ASSERT (BCM2711_SOC_REGISTERS != 0);
+    ASSERT(BCM2711_SOC_REGISTERS != 0);
     SystemMemorySize = (UINT64)mModelInstalledMB * SIZE_1MB;
     /*
      * Similar to how we compute the > 3 GB RAM segment's size in PlatformLib/
@@ -502,31 +742,36 @@ ApplyVariables (
      * spaces. SystemMemorySizeBelow4GB tracks the maximum memory below 4GB
      * line, factoring in the limit imposed by the SoC register range.
      */
-    SystemMemorySizeBelow4GB = MIN (SystemMemorySize, 4UL * SIZE_1GB);
-    SystemMemorySizeBelow4GB = MIN (SystemMemorySizeBelow4GB, BCM2836_SOC_REGISTERS);
-    SystemMemorySizeBelow4GB = MIN (SystemMemorySizeBelow4GB, BCM2711_SOC_REGISTERS);
+    SystemMemorySizeBelow4GB = MIN(SystemMemorySize, 4UL * SIZE_1GB);
+    SystemMemorySizeBelow4GB =
+        MIN(SystemMemorySizeBelow4GB, BCM2836_SOC_REGISTERS);
+    SystemMemorySizeBelow4GB =
+        MIN(SystemMemorySizeBelow4GB, BCM2711_SOC_REGISTERS);
 
-    ASSERT (SystemMemorySizeBelow4GB > 3UL * SIZE_1GB);
+    ASSERT(SystemMemorySizeBelow4GB > 3UL * SIZE_1GB);
 
-    Status = gDS->AddMemorySpace (EfiGcdMemoryTypeSystemMemory, 3UL * BASE_1GB,
-                    SystemMemorySizeBelow4GB - (3UL * SIZE_1GB),
-                    EFI_MEMORY_WC | EFI_MEMORY_WT | EFI_MEMORY_WB);
-    ASSERT_EFI_ERROR (Status);
-    Status = gDS->SetMemorySpaceAttributes (3UL * BASE_1GB,
-                    SystemMemorySizeBelow4GB - (3UL * SIZE_1GB), EFI_MEMORY_WB);
-    ASSERT_EFI_ERROR (Status);
+    Status = gDS->AddMemorySpace(
+        EfiGcdMemoryTypeSystemMemory, 3UL * BASE_1GB,
+        SystemMemorySizeBelow4GB - (3UL * SIZE_1GB),
+        EFI_MEMORY_WC | EFI_MEMORY_WT | EFI_MEMORY_WB);
+    ASSERT_EFI_ERROR(Status);
+    Status = gDS->SetMemorySpaceAttributes(
+        3UL * BASE_1GB, SystemMemorySizeBelow4GB - (3UL * SIZE_1GB),
+        EFI_MEMORY_WB);
+    ASSERT_EFI_ERROR(Status);
 
     if (SystemMemorySize > 4UL * SIZE_1GB) {
       //
       // Register any memory above 4GB.
       //
-      Status = gDS->AddMemorySpace (EfiGcdMemoryTypeSystemMemory, 4UL * BASE_1GB,
-                      SystemMemorySize - (4UL * SIZE_1GB),
-                      EFI_MEMORY_WC | EFI_MEMORY_WT | EFI_MEMORY_WB);
-      ASSERT_EFI_ERROR (Status);
-      Status = gDS->SetMemorySpaceAttributes (4UL * BASE_1GB,
-                      SystemMemorySize - (4UL * SIZE_1GB), EFI_MEMORY_WB);
-      ASSERT_EFI_ERROR (Status);
+      Status = gDS->AddMemorySpace(
+          EfiGcdMemoryTypeSystemMemory, 4UL * BASE_1GB,
+          SystemMemorySize - (4UL * SIZE_1GB),
+          EFI_MEMORY_WC | EFI_MEMORY_WT | EFI_MEMORY_WB);
+      ASSERT_EFI_ERROR(Status);
+      Status = gDS->SetMemorySpaceAttributes(
+          4UL * BASE_1GB, SystemMemorySize - (4UL * SIZE_1GB), EFI_MEMORY_WB);
+      ASSERT_EFI_ERROR(Status);
     }
   }
 
@@ -539,89 +784,92 @@ ApplyVariables (
      * No, I've not seen a problem, but having a group be
      * routed to two sets of pins seems like asking for trouble.
      */
-    GpioPinFuncSet (34, GPIO_FSEL_INPUT);
-    GpioPinFuncSet (35, GPIO_FSEL_INPUT);
-    GpioPinFuncSet (36, GPIO_FSEL_INPUT);
-    GpioPinFuncSet (37, GPIO_FSEL_INPUT);
-    GpioPinFuncSet (38, GPIO_FSEL_INPUT);
-    GpioPinFuncSet (39, GPIO_FSEL_INPUT);
-    GpioPinFuncSet (48, GPIO_FSEL_INPUT);
-    GpioPinFuncSet (49, GPIO_FSEL_INPUT);
-    GpioPinFuncSet (50, GPIO_FSEL_INPUT);
-    GpioPinFuncSet (51, GPIO_FSEL_INPUT);
-    GpioPinFuncSet (52, GPIO_FSEL_INPUT);
-    GpioPinFuncSet (53, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(34, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(35, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(36, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(37, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(38, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(39, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(48, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(49, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(50, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(51, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(52, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(53, GPIO_FSEL_INPUT);
 
-    if (PcdGet32 (PcdSdIsArasan)) {
-      DEBUG ((DEBUG_INFO, "Routing SD to Arasan\n"));
+    if (PcdGet32(PcdSdIsArasan)) {
+      DEBUG((DEBUG_INFO, "Routing SD to Arasan\n"));
       Gpio48Group = GPIO_FSEL_ALT3;
       /*
        * Route SDIO to SdHost.
        */
       Gpio34Group = GPIO_FSEL_ALT0;
-    } else {
-      DEBUG ((DEBUG_INFO, "Routing SD to SdHost\n"));
+    }
+    else {
+      DEBUG((DEBUG_INFO, "Routing SD to SdHost\n"));
       Gpio48Group = GPIO_FSEL_ALT0;
       /*
        * Route SDIO to Arasan.
        */
       Gpio34Group = GPIO_FSEL_ALT3;
     }
-    GpioPinFuncSet (34, Gpio34Group);
-    GpioPinFuncSet (35, Gpio34Group);
-    GpioPinFuncSet (36, Gpio34Group);
-    GpioPinFuncSet (37, Gpio34Group);
-    GpioPinFuncSet (38, Gpio34Group);
-    GpioPinFuncSet (39, Gpio34Group);
-    GpioPinFuncSet (48, Gpio48Group);
-    GpioPinFuncSet (49, Gpio48Group);
-    GpioPinFuncSet (50, Gpio48Group);
-    GpioPinFuncSet (51, Gpio48Group);
-    GpioPinFuncSet (52, Gpio48Group);
-    GpioPinFuncSet (53, Gpio48Group);
-
-  } else if (mModelFamily == 4) {
+    GpioPinFuncSet(34, Gpio34Group);
+    GpioPinFuncSet(35, Gpio34Group);
+    GpioPinFuncSet(36, Gpio34Group);
+    GpioPinFuncSet(37, Gpio34Group);
+    GpioPinFuncSet(38, Gpio34Group);
+    GpioPinFuncSet(39, Gpio34Group);
+    GpioPinFuncSet(48, Gpio48Group);
+    GpioPinFuncSet(49, Gpio48Group);
+    GpioPinFuncSet(50, Gpio48Group);
+    GpioPinFuncSet(51, Gpio48Group);
+    GpioPinFuncSet(52, Gpio48Group);
+    GpioPinFuncSet(53, Gpio48Group);
+  }
+  else if (mModelFamily == 4) {
     /*
      * Pi 4: either Arasan or eMMC2 goes to SD card.
      */
-    if (PcdGet32 (PcdSdIsArasan)) {
+    if (PcdGet32(PcdSdIsArasan)) {
       /*
        * WiFi disabled.
        */
-      GpioPinFuncSet (34, GPIO_FSEL_INPUT);
-      GpioPinFuncSet (35, GPIO_FSEL_INPUT);
-      GpioPinFuncSet (36, GPIO_FSEL_INPUT);
-      GpioPinFuncSet (37, GPIO_FSEL_INPUT);
-      GpioPinFuncSet (38, GPIO_FSEL_INPUT);
-      GpioPinFuncSet (39, GPIO_FSEL_INPUT);
+      GpioPinFuncSet(34, GPIO_FSEL_INPUT);
+      GpioPinFuncSet(35, GPIO_FSEL_INPUT);
+      GpioPinFuncSet(36, GPIO_FSEL_INPUT);
+      GpioPinFuncSet(37, GPIO_FSEL_INPUT);
+      GpioPinFuncSet(38, GPIO_FSEL_INPUT);
+      GpioPinFuncSet(39, GPIO_FSEL_INPUT);
       /*
        * SD card pins go to Arasan.
        */
-      MmioOr32 (GPIO_BASE_ADDRESS + 0xD0, BIT1);
-    } else {
+      MmioOr32(GPIO_BASE_ADDRESS + 0xD0, BIT1);
+    }
+    else {
       /*
        * SD card pins back to eMMC2.
        */
-      MmioAnd32 (GPIO_BASE_ADDRESS + 0xD0, ~BIT1);
+      MmioAnd32(GPIO_BASE_ADDRESS + 0xD0, ~BIT1);
       /*
        * WiFi back to Arasan.
        */
-      GpioPinFuncSet (34, GPIO_FSEL_ALT3);
-      GpioPinFuncSet (35, GPIO_FSEL_ALT3);
-      GpioPinFuncSet (36, GPIO_FSEL_ALT3);
-      GpioPinFuncSet (37, GPIO_FSEL_ALT3);
-      GpioPinFuncSet (38, GPIO_FSEL_ALT3);
-      GpioPinFuncSet (39, GPIO_FSEL_ALT3);
+      GpioPinFuncSet(34, GPIO_FSEL_ALT3);
+      GpioPinFuncSet(35, GPIO_FSEL_ALT3);
+      GpioPinFuncSet(36, GPIO_FSEL_ALT3);
+      GpioPinFuncSet(37, GPIO_FSEL_ALT3);
+      GpioPinFuncSet(38, GPIO_FSEL_ALT3);
+      GpioPinFuncSet(39, GPIO_FSEL_ALT3);
 
-      Status = mFwProtocol->SetPowerState (RPI_MBOX_POWER_STATE_SDHCI,
-                                           TRUE, TRUE); //SD on with wait
-      Status = mFwProtocol->SetGpioConfig (RPI_EXP_GPIO_SD_VOLT,
-                                           RPI_EXP_GPIO_DIR_OUT, TRUE); //3.3v
-      Status = mFwProtocol->SetClockState (RPI_MBOX_CLOCK_RATE_EMMC2, TRUE);
-      Status = mFwProtocol->SetClockState (RPI_MBOX_CLOCK_RATE_EMMC, TRUE);
+      Status = mFwProtocol->SetPowerState(
+          RPI_MBOX_POWER_STATE_SDHCI, TRUE, TRUE); // SD on with wait
+      Status = mFwProtocol->SetGpioConfig(
+          RPI_EXP_GPIO_SD_VOLT, RPI_EXP_GPIO_DIR_OUT, TRUE); // 3.3v
+      Status = mFwProtocol->SetClockState(RPI_MBOX_CLOCK_RATE_EMMC2, TRUE);
+      Status = mFwProtocol->SetClockState(RPI_MBOX_CLOCK_RATE_EMMC, TRUE);
     }
-  } else {
-    DEBUG ((DEBUG_ERROR, "Model Family %d not supported...\n", mModelFamily));
+  }
+  else {
+    DEBUG((DEBUG_ERROR, "Model Family %d not supported...\n", mModelFamily));
   }
 
   /*
@@ -635,25 +883,26 @@ ApplyVariables (
    * 11          RTCK        GPIO23    ALT4    16
    * 13          TDO         GPIO24    ALT4    18
    */
-  if (PcdGet32 (PcdDebugEnableJTAG)) {
-    GpioPinFuncSet (22, GPIO_FSEL_ALT4);
-    GpioPinFuncSet (26, GPIO_FSEL_ALT4);
-    GpioPinFuncSet (27, GPIO_FSEL_ALT4);
-    GpioPinFuncSet (25, GPIO_FSEL_ALT4);
-    GpioPinFuncSet (23, GPIO_FSEL_ALT4);
-    GpioPinFuncSet (24, GPIO_FSEL_ALT4);
-  } else {
-    GpioPinFuncSet (22, GPIO_FSEL_INPUT);
-    GpioPinFuncSet (26, GPIO_FSEL_INPUT);
-    GpioPinFuncSet (27, GPIO_FSEL_INPUT);
-    GpioPinFuncSet (25, GPIO_FSEL_INPUT);
-    GpioPinFuncSet (23, GPIO_FSEL_INPUT);
-    GpioPinFuncSet (24, GPIO_FSEL_INPUT);
+  if (PcdGet32(PcdDebugEnableJTAG)) {
+    GpioPinFuncSet(22, GPIO_FSEL_ALT4);
+    GpioPinFuncSet(26, GPIO_FSEL_ALT4);
+    GpioPinFuncSet(27, GPIO_FSEL_ALT4);
+    GpioPinFuncSet(25, GPIO_FSEL_ALT4);
+    GpioPinFuncSet(23, GPIO_FSEL_ALT4);
+    GpioPinFuncSet(24, GPIO_FSEL_ALT4);
+  }
+  else {
+    GpioPinFuncSet(22, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(26, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(27, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(25, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(23, GPIO_FSEL_INPUT);
+    GpioPinFuncSet(24, GPIO_FSEL_INPUT);
   }
 
   if (FanOnGpio) {
-    DEBUG ((DEBUG_INFO, "Fan enabled on GPIO %d\n", FanOnGpio));
-    GpioPinFuncSet (FanOnGpio, GPIO_FSEL_OUTPUT);
+    DEBUG((DEBUG_INFO, "Fan enabled on GPIO %d\n", FanOnGpio));
+    GpioPinFuncSet(FanOnGpio, GPIO_FSEL_OUTPUT);
   }
 
   //
@@ -661,24 +910,23 @@ ApplyVariables (
   // Pin 31 must be held LOW so that we can talk to the BT chip
   // without flow control
   //
-  GpioPinFuncSet (31, GPIO_FSEL_OUTPUT);
-  GpioPinConfigure (31, CLEAR_GPIO);
+  GpioPinFuncSet(31, GPIO_FSEL_OUTPUT);
+  GpioPinConfigure(31, CLEAR_GPIO);
 
   //
   // Bluetooth pin muxing
   //
-  if ((PcdGet32 (PcdUartInUse) == PL011_UART_IN_USE)) {
-    DEBUG ((DEBUG_INFO, "Enable Bluetooth over MiniUART\n"));
-    GpioPinFuncSet (32, GPIO_FSEL_ALT5);
-    GpioPinFuncSet (33, GPIO_FSEL_ALT5);
-  } else {
-    DEBUG ((DEBUG_INFO, "Enable Bluetooth over PL011 UART\n"));
-    GpioPinFuncSet (32, GPIO_FSEL_ALT3);
-    GpioPinFuncSet (33, GPIO_FSEL_ALT3);
+  if ((PcdGet32(PcdUartInUse) == PL011_UART_IN_USE)) {
+    DEBUG((DEBUG_INFO, "Enable Bluetooth over MiniUART\n"));
+    GpioPinFuncSet(32, GPIO_FSEL_ALT5);
+    GpioPinFuncSet(33, GPIO_FSEL_ALT5);
   }
-
+  else {
+    DEBUG((DEBUG_INFO, "Enable Bluetooth over PL011 UART\n"));
+    GpioPinFuncSet(32, GPIO_FSEL_ALT3);
+    GpioPinFuncSet(33, GPIO_FSEL_ALT3);
+  }
 }
-
 
 typedef struct {
   CHAR8 Name[4];
@@ -686,16 +934,16 @@ typedef struct {
 } AML_NAME_OP_REPLACE;
 
 typedef struct {
-  UINT64                      OemTableId;
-  UINTN                       PcdToken;
-  UINTN                       PcdTokenNot;
-  CONST AML_NAME_OP_REPLACE   *SdtNameOpReplace;
+  UINT64                     OemTableId;
+  UINTN                      PcdToken;
+  UINTN                      PcdTokenNot;
+  CONST AML_NAME_OP_REPLACE *SdtNameOpReplace;
 } NAMESPACE_TABLES;
 
 #define SSDT_PATTERN_LEN 5
-#define AML_NAMEOP_8   0x0A
-#define AML_NAMEOP_16  0x0B
-#define AML_NAMEOP_32  0x0C
+#define AML_NAMEOP_8 0x0A
+#define AML_NAMEOP_16 0x0B
+#define AML_NAMEOP_32 0x0C
 #define AML_NAMEOP_STR 0x0D
 //
 // Scan the given namespace table (DSDT/SSDT) for AML NameOps
@@ -709,17 +957,15 @@ typedef struct {
 // in the ASL and pick the correct one based off a variable.
 //
 STATIC
-VOID
-UpdateSdtNameOps (
-  EFI_ACPI_DESCRIPTION_HEADER  *AcpiTable,
-  CONST AML_NAME_OP_REPLACE    *NameOpReplace
-  )
+VOID UpdateSdtNameOps(
+    EFI_ACPI_DESCRIPTION_HEADER *AcpiTable,
+    CONST AML_NAME_OP_REPLACE   *NameOpReplace)
 {
   UINTN  Idx;
   UINTN  Index;
   CHAR8  Pattern[SSDT_PATTERN_LEN];
   UINTN  PcdVal;
-  UINT8  *SdtPtr;
+  UINT8 *SdtPtr;
   UINT32 SdtSize;
 
   SdtSize = AcpiTable->Length;
@@ -740,8 +986,8 @@ UpdateSdtNameOps (
       Pattern[4] = NameOpReplace[Idx].Name[3];
 
       for (Index = 0; Index < (SdtSize - SSDT_PATTERN_LEN); Index++) {
-        if (CompareMem (SdtPtr + Index, Pattern, SSDT_PATTERN_LEN) == 0) {
-          PcdVal = LibPcdGet32 (NameOpReplace[Idx].PcdToken);
+        if (CompareMem(SdtPtr + Index, Pattern, SSDT_PATTERN_LEN) == 0) {
+          PcdVal = LibPcdGet32(NameOpReplace[Idx].PcdToken);
           switch (SdtPtr[Index + SSDT_PATTERN_LEN]) {
           case AML_NAMEOP_32:
             SdtPtr[Index + SSDT_PATTERN_LEN + 4] = (PcdVal >> 24) & 0xFF;
@@ -772,82 +1018,53 @@ UpdateSdtNameOps (
   }
 }
 
-
 STATIC
 BOOLEAN
-VerifyUpdateTable (
-  IN  EFI_ACPI_DESCRIPTION_HEADER   *AcpiHeader,
-  IN  CONST NAMESPACE_TABLES        *SdtTable
-  )
+VerifyUpdateTable(
+    IN EFI_ACPI_DESCRIPTION_HEADER *AcpiHeader,
+    IN CONST NAMESPACE_TABLES      *SdtTable)
 {
   BOOLEAN Result;
 
   Result = TRUE;
-  if (SdtTable->PcdToken && !LibPcdGet32 (SdtTable->PcdToken)) {
+  if (SdtTable->PcdToken && !LibPcdGet32(SdtTable->PcdToken)) {
     Result = FALSE;
   }
-  if (SdtTable->PcdTokenNot && LibPcdGet32 (SdtTable->PcdTokenNot)) {
+  if (SdtTable->PcdTokenNot && LibPcdGet32(SdtTable->PcdTokenNot)) {
     Result = FALSE;
   }
   if (Result && SdtTable->SdtNameOpReplace) {
-    UpdateSdtNameOps (AcpiHeader, SdtTable->SdtNameOpReplace);
+    UpdateSdtNameOps(AcpiHeader, SdtTable->SdtNameOpReplace);
   }
 
   return Result;
 }
 
 STATIC CONST AML_NAME_OP_REPLACE SsdtNameOpReplace[] = {
-  { "GIOP", PcdToken (PcdFanOnGpio) },
-  { "FTMP", PcdToken (PcdFanTemp) },
-  { }
-};
+    {"GIOP", PcdToken(PcdFanOnGpio)}, {"FTMP", PcdToken(PcdFanTemp)}, {}};
 
 STATIC CONST AML_NAME_OP_REPLACE SsdtEmmcNameOpReplace[] = {
-  { "SDMA", PcdToken (PcdMmcEnableDma) },
-  { }
-};
+    {"SDMA", PcdToken(PcdMmcEnableDma)}, {}};
 
 STATIC CONST AML_NAME_OP_REPLACE DsdtNameOpReplace[] = {
-  { "URIU", PcdToken (PcdUartInUse) },
-  { "MUCR", PcdToken (PcdMiniUartClockRate) },
-  { }
-};
+    {"URIU", PcdToken(PcdUartInUse)},
+    {"MUCR", PcdToken(PcdMiniUartClockRate)},
+    {}};
 
 STATIC CONST NAMESPACE_TABLES SdtTables[] = {
-  {
-    SIGNATURE_64 ('R', 'P', 'I', 'T', 'H', 'F', 'A', 'N'),
-    PcdToken(PcdFanOnGpio),
-    0,
-    SsdtNameOpReplace
-  },
-  {
-    SIGNATURE_64 ('R', 'P', 'I', '4', 'E', 'M', 'M', 'C'),
-    0,
-    PcdToken(PcdSdIsArasan),
-    SsdtEmmcNameOpReplace
-  },
+    {SIGNATURE_64('R', 'P', 'I', 'T', 'H', 'F', 'A', 'N'),
+     PcdToken(PcdFanOnGpio), 0, SsdtNameOpReplace},
+    {SIGNATURE_64('R', 'P', 'I', '4', 'E', 'M', 'M', 'C'), 0,
+     PcdToken(PcdSdIsArasan), SsdtEmmcNameOpReplace},
 #if (RPI_MODEL == 4)
-  {
-    SIGNATURE_64 ('R', 'P', 'I', '4', 'X', 'H', 'C', 'I'),
-    0,
-    PcdToken(PcdXhciPci),
-    NULL
-  },
-  {
-    SIGNATURE_64 ('R', 'P', 'I', '4', 'P', 'C', 'I', 'E'),
-    PcdToken(PcdXhciPci),
-    0,
-    NULL
-  },
+    {SIGNATURE_64('R', 'P', 'I', '4', 'X', 'H', 'C', 'I'), 0,
+     PcdToken(PcdXhciPci), NULL},
+    {SIGNATURE_64('R', 'P', 'I', '4', 'P', 'C', 'I', 'E'), PcdToken(PcdXhciPci),
+     0, NULL},
 #endif
-  { // DSDT
-    SIGNATURE_64 ('R', 'P', 'I', 0, 0, 0, 0, 0),
-    0,
-    0,
-    DsdtNameOpReplace
-  },
-  { }
-};
+    {// DSDT
+     SIGNATURE_64('R', 'P', 'I', 0, 0, 0, 0, 0), 0, 0, DsdtNameOpReplace},
+    {}};
 
 //
 // Monitor the ACPI tables being installed and when
@@ -857,9 +1074,7 @@ STATIC CONST NAMESPACE_TABLES SdtTables[] = {
 //
 STATIC
 BOOLEAN
-HandleDynamicNamespace (
-  IN  EFI_ACPI_DESCRIPTION_HEADER   *AcpiHeader
-  )
+HandleDynamicNamespace(IN EFI_ACPI_DESCRIPTION_HEADER *AcpiHeader)
 {
   UINTN Tables;
 
@@ -867,42 +1082,50 @@ HandleDynamicNamespace (
   DBG2_TABLE                                     *Dbg2Table;
 
   switch (AcpiHeader->Signature) {
-  case SIGNATURE_32 ('D', 'S', 'D', 'T'):
-  case SIGNATURE_32 ('S', 'S', 'D', 'T'):
+  case SIGNATURE_32('D', 'S', 'D', 'T'):
+  case SIGNATURE_32('S', 'S', 'D', 'T'):
     for (Tables = 0; SdtTables[Tables].OemTableId; Tables++) {
       if (AcpiHeader->OemTableId == SdtTables[Tables].OemTableId) {
-        return VerifyUpdateTable (AcpiHeader, &SdtTables[Tables]);
+        return VerifyUpdateTable(AcpiHeader, &SdtTables[Tables]);
       }
     }
-    DEBUG ((DEBUG_ERROR, "Found namespace table not in table list.\n"));
+    DEBUG((DEBUG_ERROR, "Found namespace table not in table list.\n"));
     return FALSE;
 
-  case SIGNATURE_32 ('I', 'O', 'R', 'T'):
+  case SIGNATURE_32('I', 'O', 'R', 'T'):
     // only enable the IORT on machines with >3G and no limit
     // to avoid problems with rhel/centos and other older OSs
-    if (PcdGet32 (PcdRamLimitTo3GB) || !PcdGet32 (PcdRamMoreThan3GB)) {
+    if (PcdGet32(PcdRamLimitTo3GB) || !PcdGet32(PcdRamMoreThan3GB)) {
       return FALSE;
     }
     return TRUE;
 
-  case SIGNATURE_32 ('S', 'P', 'C', 'R'):
+  case SIGNATURE_32('S', 'P', 'C', 'R'):
     SpcrTable = (EFI_ACPI_SERIAL_PORT_CONSOLE_REDIRECTION_TABLE *)AcpiHeader;
-    if ((PcdGet32 (PcdUartInUse) == PL011_UART_IN_USE) &&
-        (SpcrTable->InterfaceType == EFI_ACPI_SERIAL_PORT_CONSOLE_REDIRECTION_TABLE_INTERFACE_TYPE_ARM_PL011_UART)) {
+    if ((PcdGet32(PcdUartInUse) == PL011_UART_IN_USE) &&
+        (SpcrTable->InterfaceType ==
+         EFI_ACPI_SERIAL_PORT_CONSOLE_REDIRECTION_TABLE_INTERFACE_TYPE_ARM_PL011_UART)) {
       return TRUE;
-    } else if ((PcdGet32 (PcdUartInUse) == MINI_UART_IN_USE) &&
-               (SpcrTable->InterfaceType == EFI_ACPI_SERIAL_PORT_CONSOLE_REDIRECTION_TABLE_INTERFACE_TYPE_BCM2835_UART)) {
+    }
+    else if (
+        (PcdGet32(PcdUartInUse) == MINI_UART_IN_USE) &&
+        (SpcrTable->InterfaceType ==
+         EFI_ACPI_SERIAL_PORT_CONSOLE_REDIRECTION_TABLE_INTERFACE_TYPE_BCM2835_UART)) {
       return TRUE;
     }
     return FALSE;
 
-  case SIGNATURE_32 ('D', 'B', 'G', '2'):
+  case SIGNATURE_32('D', 'B', 'G', '2'):
     Dbg2Table = (DBG2_TABLE *)AcpiHeader;
-    if ((PcdGet32 (PcdUartInUse) == PL011_UART_IN_USE) &&
-        (Dbg2Table->Dbg2DeviceInfo[0].Dbg2Device.PortSubtype == EFI_ACPI_DBG2_PORT_SUBTYPE_SERIAL_ARM_PL011_UART)) {
+    if ((PcdGet32(PcdUartInUse) == PL011_UART_IN_USE) &&
+        (Dbg2Table->Dbg2DeviceInfo[0].Dbg2Device.PortSubtype ==
+         EFI_ACPI_DBG2_PORT_SUBTYPE_SERIAL_ARM_PL011_UART)) {
       return TRUE;
-    } else if ((PcdGet32 (PcdUartInUse) == MINI_UART_IN_USE) &&
-               (Dbg2Table->Dbg2DeviceInfo[0].Dbg2Device.PortSubtype == EFI_ACPI_DBG2_PORT_SUBTYPE_SERIAL_BCM2835_UART)) {
+    }
+    else if (
+        (PcdGet32(PcdUartInUse) == MINI_UART_IN_USE) &&
+        (Dbg2Table->Dbg2DeviceInfo[0].Dbg2Device.PortSubtype ==
+         EFI_ACPI_DBG2_PORT_SUBTYPE_SERIAL_BCM2835_UART)) {
       return TRUE;
     }
     return FALSE;
@@ -911,89 +1134,104 @@ HandleDynamicNamespace (
   return TRUE;
 }
 
-
 EFI_STATUS
 EFIAPI
-ConfigInitialize (
-  IN EFI_HANDLE ImageHandle,
-  IN EFI_SYSTEM_TABLE *SystemTable
-  )
+ConfigInitialize(IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable)
 {
-  EFI_STATUS                      Status;
-  EFI_EVENT                       EndOfDxeEvent;
+  EFI_STATUS Status;
+  EFI_EVENT  EndOfDxeEvent;
 
-  if ((MmioRead32(GPIO_GPFSEL1) & GPFSEL1_UART_MASK) == PL011_UART_IN_USE_REG_VALUE) {
-    PcdSet32S (PcdUartInUse, PL011_UART_IN_USE);
-  } else if ((MmioRead32(GPIO_GPFSEL1) & GPFSEL1_UART_MASK) == MINI_UART_IN_USE_REG_VALUE) {
-    PcdSet32S (PcdUartInUse, MINI_UART_IN_USE);
+  if ((MmioRead32(GPIO_GPFSEL1) & GPFSEL1_UART_MASK) ==
+      PL011_UART_IN_USE_REG_VALUE) {
+    PcdSet32S(PcdUartInUse, PL011_UART_IN_USE);
+  }
+  else if (
+      (MmioRead32(GPIO_GPFSEL1) & GPFSEL1_UART_MASK) ==
+      MINI_UART_IN_USE_REG_VALUE) {
+    PcdSet32S(PcdUartInUse, MINI_UART_IN_USE);
   }
 
-  Status = gBS->LocateProtocol (&gRaspberryPiFirmwareProtocolGuid,
-                  NULL, (VOID**)&mFwProtocol);
-  ASSERT_EFI_ERROR (Status);
-  if (EFI_ERROR (Status)) {
+  Status = gBS->LocateProtocol(
+      &gRaspberryPiFirmwareProtocolGuid, NULL, (VOID **)&mFwProtocol);
+  ASSERT_EFI_ERROR(Status);
+  if (EFI_ERROR(Status)) {
     return Status;
   }
 
-  Status = mFwProtocol->GetModelFamily (&mModelFamily);
+  Status = mFwProtocol->GetModelFamily(&mModelFamily);
   if (Status != EFI_SUCCESS) {
-    DEBUG ((DEBUG_ERROR, "Couldn't get the Raspberry Pi model family: %r\n", Status));
-  } else {
-    DEBUG ((DEBUG_INFO, "Current Raspberry Pi model family is %d\n", mModelFamily));
+    DEBUG(
+        (DEBUG_ERROR, "Couldn't get the Raspberry Pi model family: %r\n",
+         Status));
+  }
+  else {
+    DEBUG((
+        DEBUG_INFO, "Current Raspberry Pi model family is %d\n", mModelFamily));
   }
 
-  Status = mFwProtocol->GetModelInstalledMB (&mModelInstalledMB);
+  Status = mFwProtocol->GetModelInstalledMB(&mModelInstalledMB);
   if (Status != EFI_SUCCESS) {
-    DEBUG ((DEBUG_ERROR, "Couldn't get the Raspberry Pi installed RAM size: %r\n", Status));
-  } else {
-    DEBUG ((DEBUG_INFO, "Current Raspberry Pi installed RAM size is %d MB\n", mModelInstalledMB));
+    DEBUG(
+        (DEBUG_ERROR, "Couldn't get the Raspberry Pi installed RAM size: %r\n",
+         Status));
+  }
+  else {
+    DEBUG(
+        (DEBUG_INFO, "Current Raspberry Pi installed RAM size is %d MB\n",
+         mModelInstalledMB));
   }
 
-  Status = mFwProtocol->GetModelRevision (&mModelRevision);
+  Status = mFwProtocol->GetModelRevision(&mModelRevision);
   if (Status != EFI_SUCCESS) {
-    DEBUG ((DEBUG_ERROR, "Couldn't get the Raspberry Pi revision: %r\n", Status));
-  } else {
-    DEBUG ((DEBUG_INFO, "Current Raspberry Pi revision %x\n", mModelRevision));
+    DEBUG(
+        (DEBUG_ERROR, "Couldn't get the Raspberry Pi revision: %r\n", Status));
+  }
+  else {
+    DEBUG((DEBUG_INFO, "Current Raspberry Pi revision %x\n", mModelRevision));
   }
 
-  Status = mFwProtocol->GetClockRate (RPI_MBOX_CLOCK_RATE_CORE, &mCoreClockRate);
+  Status = mFwProtocol->GetClockRate(RPI_MBOX_CLOCK_RATE_CORE, &mCoreClockRate);
   if (Status != EFI_SUCCESS) {
-    DEBUG ((DEBUG_ERROR, "Couldn't get the Raspberry Pi core clock rate: %r\n", Status));
-  } else {
-    PcdSet32S (PcdMiniUartClockRate, mCoreClockRate);
+    DEBUG(
+        (DEBUG_ERROR, "Couldn't get the Raspberry Pi core clock rate: %r\n",
+         Status));
+  }
+  else {
+    PcdSet32S(PcdMiniUartClockRate, mCoreClockRate);
   }
 
-  Status = SetupVariables ();
+  Status = SetupVariables();
   if (Status != EFI_SUCCESS) {
-    DEBUG ((DEBUG_ERROR, "Couldn't not setup NV vars: %r\n", Status));
+    DEBUG((DEBUG_ERROR, "Couldn't not setup NV vars: %r\n", Status));
   }
 
-  ApplyVariables ();
-  Status = gBS->InstallProtocolInterface (&ImageHandle,
-                  &gRaspberryPiConfigAppliedProtocolGuid,
-                  EFI_NATIVE_INTERFACE,
-                  NULL);
-  ASSERT_EFI_ERROR (Status);
+  ApplyVariables();
+  Status = gBS->InstallProtocolInterface(
+      &ImageHandle, &gRaspberryPiConfigAppliedProtocolGuid,
+      EFI_NATIVE_INTERFACE, NULL);
+  ASSERT_EFI_ERROR(Status);
 
-  Status = InstallHiiPages ();
+  Status = InstallHiiPages();
   if (Status != EFI_SUCCESS) {
-    DEBUG ((DEBUG_ERROR, "Couldn't install ConfigDxe configuration pages: %r\n", Status));
+    DEBUG(
+        (DEBUG_ERROR, "Couldn't install ConfigDxe configuration pages: %r\n",
+         Status));
   }
 
-  if (PcdGet32 (PcdSystemTableMode) == SYSTEM_TABLE_MODE_ACPI ||
-      PcdGet32 (PcdSystemTableMode) == SYSTEM_TABLE_MODE_BOTH) {
-     Status = LocateAndInstallAcpiFromFvConditional (&mAcpiTableFile,
-                                                     &HandleDynamicNamespace);
-     ASSERT_EFI_ERROR (Status);
+  if (PcdGet32(PcdSystemTableMode) == SYSTEM_TABLE_MODE_ACPI ||
+      PcdGet32(PcdSystemTableMode) == SYSTEM_TABLE_MODE_BOTH) {
+    Status = LocateAndInstallAcpiFromFvConditional(
+        &mAcpiTableFile, &HandleDynamicNamespace);
+    ASSERT_EFI_ERROR(Status);
   }
 
-  Status = gBS->CreateEventEx (EVT_NOTIFY_SIGNAL, TPL_NOTIFY, RegisterDevices,
-                  NULL, &gEfiEndOfDxeEventGroupGuid, &EndOfDxeEvent);
-  ASSERT_EFI_ERROR (Status);
-
+  Status = gBS->CreateEventEx(
+      EVT_NOTIFY_SIGNAL, TPL_NOTIFY, RegisterDevices, NULL,
+      &gEfiEndOfDxeEventGroupGuid, &EndOfDxeEvent);
+  ASSERT_EFI_ERROR(Status);
 
   if (mModelFamily == 4) {
-    RegisterXhciQuirkHandler (mFwProtocol);
+    RegisterXhciQuirkHandler(mFwProtocol);
   }
 
   return EFI_SUCCESS;

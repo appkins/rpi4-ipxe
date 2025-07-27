@@ -147,24 +147,60 @@ typedef struct {
   UINT32 EnableDma;
 } MMC_EMMC_DMA_VARSTORE_DATA;
 
+//
+// Redfish Service Configuration
+//
+
+#define REDFISH_IP_ADDRESS_STR_MAX_LEN     15
+#define REDFISH_IP_ADDRESS_STR_STORAGE_SIZE 16
+typedef struct {
+  UINT8 IpAddress[REDFISH_IP_ADDRESS_STR_STORAGE_SIZE];
+} REDFISH_SERVICE_IP_ADDRESS_VARSTORE_DATA;
+
 typedef struct {
   /*
-   * 0 - Authentication disabled (AuthMethodNone)
-   * 1 - Authentication enabled (AuthMethodHttpBasic)
+   * Redfish Service Port (default 5000)
    */
-  UINT8 Enabled;
-} REDFISH_AUTH_ENABLED_VARSTORE_DATA;
+  UINT16 Port;
+} REDFISH_SERVICE_IP_PORT_VARSTORE_DATA;
 
-#define REDFISH_USERID_STR_MAX_LEN       32
-#define REDFISH_USERID_STR_STORAGE_SIZE  33
+#define REDFISH_USERID_STR_MAX_LEN     63
+#define REDFISH_USERID_STR_STORAGE_SIZE 64
 typedef struct {
-  CHAR8 UserId[REDFISH_USERID_STR_STORAGE_SIZE];
+  UINT8 UserId[REDFISH_USERID_STR_STORAGE_SIZE];
 } REDFISH_SERVICE_USERID_VARSTORE_DATA;
 
-#define REDFISH_PASSWORD_STR_MAX_LEN       64
-#define REDFISH_PASSWORD_STR_STORAGE_SIZE  65
+#define REDFISH_PASSWORD_STR_MAX_LEN     63
+#define REDFISH_PASSWORD_STR_STORAGE_SIZE 64
 typedef struct {
-  CHAR8 Password[REDFISH_PASSWORD_STR_STORAGE_SIZE];
+  UINT8 Password[REDFISH_PASSWORD_STR_STORAGE_SIZE];
 } REDFISH_SERVICE_PASSWORD_VARSTORE_DATA;
+
+typedef struct {
+  /*
+   * 0 - Disable Redfish Authentication
+   * 1 - Enable Redfish Authentication
+   */
+  UINT32 Enabled;
+} REDFISH_AUTH_ENABLED_VARSTORE_DATA;
+
+typedef struct {
+  /*
+   * 0 - Disable Redfish
+   * 1 - Enable Redfish
+   */
+  UINT32 Enable;
+} REDFISH_SERVICE_ENABLE_VARSTORE_DATA;
+
+typedef struct {
+  /*
+   * IP Assignment Type:
+   * 0 - Unknown
+   * 1 - Static
+   * 2 - DHCP
+   * 3 - AutoConfig
+   */
+  UINT32 IpAssignmentType;
+} REDFISH_SERVICE_IP_ASSIGNMENT_VARSTORE_DATA;
 
 #endif /* CONFIG_VARS_H */

@@ -184,12 +184,12 @@
   GpioLib|Silicon/Broadcom/Bcm283x/Library/GpioLib/GpioLib.inf
 
   IpmiLib|MdeModulePkg/Library/BaseIpmiLibNull/BaseIpmiLibNull.inf
-  IpmiCommandLib|MdeModulePkg/Library/BaseIpmiCommandLibNull/BaseIpmiCommandLibNull.inf
+  # IpmiCommandLib|MdeModulePkg/Library/BaseIpmiCommandLibNull/BaseIpmiCommandLibNull.inf
   # Use EmulatorPkg libraries for enhanced variable-based Redfish configuration
   # These provide better integration with RedfishPlatformConfig.efi and runtime configuration
-  RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceLibNull/PlatformHostInterfaceLibNull.inf
+  # RedfishPlatformHostInterfaceLib|RedfishPkg/Library/PlatformHostInterfaceLibNull/PlatformHostInterfaceLibNull.inf
   # RedfishPlatformCredentialLib|RedfishPkg/Library/PlatformCredentialLibNull/PlatformCredentialLibNull.inf
-  # RedfishPlatformHostInterfaceLib|Platform/RaspberryPi/Library/RedfishPlatformHostInterfaceLib/RedfishPlatformHostInterfaceLib.inf
+  RedfishPlatformHostInterfaceLib|Platform/RaspberryPi/Library/RedfishPlatformHostInterfaceLib/RedfishPlatformHostInterfaceLib.inf
   RedfishPlatformCredentialLib|Platform/RaspberryPi/Library/RedfishPlatformCredentialLib/RedfishPlatformCredentialLib.inf
   RedfishPlatformWantedDeviceLib|RedfishPkg/Library/RedfishPlatformWantedDeviceLibNull/RedfishPlatformWantedDeviceLibNull.inf
   #
@@ -495,14 +495,14 @@
   # Redfish Client configuration for early synchronization
   gEfiRedfishClientPkgTokenSpaceGuid.PcdRedfishServiceEtagSupported|True
 
-  # Use default ReadyToBoot event for Redfish Feature Driver startup
-  # This ensures network infrastructure is ready before Redfish synchronization
+  # Use our custom early startup event instead of ReadyToBoot event
+  # This allows RedfishFeatureCoreDxe to start much earlier in DXE phase
   # gEfiEventReadyToBootGuid (Default): {0xB3, 0x8F, 0xE8, 0x7C, 0xD7, 0x4B, 0x79, 0x46, 0x87, 0xA8, 0xA8, 0xD8, 0xDE, 0xE5, 0x0D, 0x2B}
   # gEfiEventAfterReadyToBootGuid:      {0xAD, 0x00, 0x2A, 0x3A, 0xB9, 0x98, 0xDF, 0x4C, 0xA4, 0x78, 0x70, 0x27, 0x77, 0xF1, 0xC1, 0x0B}
   # gEfiEndOfDxeEventGroupGuid:         {0x7A, 0x96, 0xCE, 0x02, 0x7E, 0xDD, 0xFC, 0x4F, 0x9E, 0xE7, 0x81, 0x0C, 0xF0, 0x47, 0x08, 0x80}
   # gEfiEventExitBootServicesGuid:      {0x55, 0xF0, 0xAB, 0x27, 0xB8, 0xB1, 0x26, 0x4C, 0x80, 0x48, 0x74, 0x8F, 0x37, 0xBA, 0xA2, 0xDF}
-  # gEfiRedfishClientPkgTokenSpaceGuid.PcdEdkIIRedfishFeatureDriverStartupEventGuid|gEfiEventExitBootServicesGuid
-  # gEfiRedfishClientPkgTokenSpaceGuid.PcdEdkIIRedfishFeatureDriverStartupEventGuid|{0xB3, 0x8F, 0xE8, 0x7C, 0xD7, 0x4B, 0x79, 0x46, 0x87, 0xA8, 0xA8, 0xD8, 0xDE, 0xE5, 0x0D, 0x2B}
+  # Custom early startup event GUID that matches RedfishEarlyStartupDxe:
+  gEfiRedfishClientPkgTokenSpaceGuid.PcdEdkIIRedfishFeatureDriverStartupEventGuid|{0x78, 0x56, 0x34, 0x12, 0x34, 0x12, 0x78, 0x56, 0x9A, 0xBC, 0x12, 0x34, 0x56, 0x78, 0x90, 0x12}
 
   # Network Configuration for Redfish access
   gEfiNetworkPkgTokenSpaceGuid.PcdAllowHttpConnections|True
@@ -617,6 +617,9 @@
   #
   # Redfish service configuration.
   #
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceAuthenticationEnabled|L"RedfishServiceAuthenticationEnabled"|gConfigDxeFormSetGuid|0x0|0
+  gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId|L"RedfishServiceUserId"|gConfigDxeFormSetGuid|0x0|"admin"
+  # gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword|L"RedfishServicePassword"|gConfigDxeFormSetGuid|0x0|"pwd123456"
   # gRaspberryPiTokenSpaceGuid.PcdHostIpAssignmentType|L"HostIpAssignmentType"|gConfigDxeFormSetGuid|0x0|3
   # gRaspberryPiTokenSpaceGuid.PcdHostIpAddress|L"HostIpAddress"|gConfigDxeFormSetGuid|0x0|L""
   # gRaspberryPiTokenSpaceGuid.PcdHostIpMask|L"HostIpMask"|gConfigDxeFormSetGuid|0x0|L""
@@ -828,6 +831,18 @@
       gEmbeddedTokenSpaceGuid.PcdDmaDeviceOffset|0x00000000
       gEmbeddedTokenSpaceGuid.PcdDmaDeviceLimit|0xffffffffff
   }
+
+!if $(REDFISH_ENABLE) == TRUE
+  #
+  # Redfish Early Startup - must run after networking but before other Redfish components
+  #
+  Platform/RaspberryPi/Drivers/RedfishEarlyStartupDxe/RedfishEarlyStartupDxe.inf
+
+  #
+  # Redfish Foundation Components
+  #
+  RedfishClientPkg/RedfishFeatureCoreDxe/RedfishFeatureCoreDxe.inf
+!endif
 
   #
   # RNG

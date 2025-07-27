@@ -22,11 +22,16 @@
 #include <Library/RedfishHostInterfaceLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/DevicePathLib.h>
 #include <Library/RedfishDebugLib.h>
 
 #include <Protocol/EdkIIRedfishCredential2.h>
 #include <Protocol/SimpleNetwork.h>
+
+#include <Guid/GlobalVariable.h>
+#include <ConfigVars.h>
+#include <Drivers/ConfigDxe/ConfigDxeFormSetGuid.h>
 
 //
 // Use the standard EFI PCI IO Protocol

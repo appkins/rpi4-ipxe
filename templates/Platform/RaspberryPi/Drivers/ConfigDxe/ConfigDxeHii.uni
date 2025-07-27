@@ -152,6 +152,12 @@
 #string STR_REDFISH_FORM_TITLE         #language en-US "Redfish Service Configuration"
 #string STR_REDFISH_FORM_SUBTITLE      #language en-US "Configure Redfish Host Interface"
 
+#string STR_REDFISH_IP_ADDRESS_PROMPT  #language en-US "Service IP Address"
+#string STR_REDFISH_IP_ADDRESS_HELP    #language en-US "IP address of the Redfish service (e.g. 10.0.198.24)"
+
+#string STR_REDFISH_PORT_PROMPT        #language en-US "Service Port"
+#string STR_REDFISH_PORT_HELP          #language en-US "Port number for the Redfish service (default: 5000)"
+
 #string STR_REDFISH_AUTH_ENABLED_PROMPT #language en-US "Authentication"
 #string STR_REDFISH_AUTH_ENABLED_HELP   #language en-US "Enable authentication for Redfish service access"
 #string STR_REDFISH_AUTH_DISABLED       #language en-US "Disabled (No Authentication)"

@@ -6,8 +6,8 @@
  *
  **/
 
-#include <Uefi.h>
 #include <Library/UefiLib.h>
+#include <Uefi.h>
 
 #include "Rp1BusDxe.h"
 
@@ -52,11 +52,9 @@
 **/
 EFI_STATUS
 EFIAPI
-Rp1BusComponentNameGetDriverName (
-  IN  EFI_COMPONENT_NAME_PROTOCOL  *This,
-  IN  CHAR8                        *Language,
-  OUT CHAR16                       **DriverName
-  );
+Rp1BusComponentNameGetDriverName(
+    IN EFI_COMPONENT_NAME_PROTOCOL *This, IN CHAR8 *Language,
+    OUT CHAR16 **DriverName);
 
 /**
   Retrieves a Unicode string that is the user readable name of the controller
@@ -128,41 +126,35 @@ Rp1BusComponentNameGetDriverName (
 **/
 EFI_STATUS
 EFIAPI
-Rp1BusComponentNameGetControllerName (
-  IN  EFI_COMPONENT_NAME_PROTOCOL  *This,
-  IN  EFI_HANDLE                   ControllerHandle,
-  IN  EFI_HANDLE                   ChildHandle        OPTIONAL,
-  IN  CHAR8                        *Language,
-  OUT CHAR16                       **ControllerName
-  );
+Rp1BusComponentNameGetControllerName(
+    IN EFI_COMPONENT_NAME_PROTOCOL *This, IN EFI_HANDLE ControllerHandle,
+    IN EFI_HANDLE ChildHandle OPTIONAL, IN CHAR8 *Language,
+    OUT CHAR16 **ControllerName);
 
 //
 // EFI Component Name Protocol
 //
-GLOBAL_REMOVE_IF_UNREFERENCED EFI_COMPONENT_NAME_PROTOCOL  mRp1BusComponentName = {
-  Rp1BusComponentNameGetDriverName,
-  Rp1BusComponentNameGetControllerName,
-  "eng"
-};
+GLOBAL_REMOVE_IF_UNREFERENCED EFI_COMPONENT_NAME_PROTOCOL mRp1BusComponentName =
+    {Rp1BusComponentNameGetDriverName, Rp1BusComponentNameGetControllerName,
+     "eng"};
 
 //
 // EFI Component Name 2 Protocol
 //
-GLOBAL_REMOVE_IF_UNREFERENCED EFI_COMPONENT_NAME2_PROTOCOL  mRp1BusComponentName2 = {
-  (EFI_COMPONENT_NAME2_GET_DRIVER_NAME)Rp1BusComponentNameGetDriverName,
-  (EFI_COMPONENT_NAME2_GET_CONTROLLER_NAME)Rp1BusComponentNameGetControllerName,
-  "en"
-};
+GLOBAL_REMOVE_IF_UNREFERENCED EFI_COMPONENT_NAME2_PROTOCOL
+    mRp1BusComponentName2 = {
+        (EFI_COMPONENT_NAME2_GET_DRIVER_NAME)Rp1BusComponentNameGetDriverName,
+        (EFI_COMPONENT_NAME2_GET_CONTROLLER_NAME)
+            Rp1BusComponentNameGetControllerName,
+        "en"};
 
-GLOBAL_REMOVE_IF_UNREFERENCED EFI_UNICODE_STRING_TABLE  mRp1BusDriverNameTable[] = {
-  { "eng;en", L"Raspberry Pi RP1 I/O Bridge Driver" },
-  { NULL,     NULL                                  }
-};
+GLOBAL_REMOVE_IF_UNREFERENCED EFI_UNICODE_STRING_TABLE
+    mRp1BusDriverNameTable[] = {
+        {"eng;en", L"Raspberry Pi RP1 I/O Bridge Driver"}, {NULL, NULL}};
 
-GLOBAL_REMOVE_IF_UNREFERENCED EFI_UNICODE_STRING_TABLE  mRp1BusControllerNameTable[] = {
-  { "eng;en", L"Raspberry Pi RP1 I/O Bridge" },
-  { NULL,     NULL                           }
-};
+GLOBAL_REMOVE_IF_UNREFERENCED EFI_UNICODE_STRING_TABLE
+    mRp1BusControllerNameTable[] = {
+        {"eng;en", L"Raspberry Pi RP1 I/O Bridge"}, {NULL, NULL}};
 
 /**
   Retrieves a Unicode string that is the user readable name of the driver.
@@ -205,19 +197,13 @@ GLOBAL_REMOVE_IF_UNREFERENCED EFI_UNICODE_STRING_TABLE  mRp1BusControllerNameTab
 **/
 EFI_STATUS
 EFIAPI
-Rp1BusComponentNameGetDriverName (
-  IN  EFI_COMPONENT_NAME_PROTOCOL  *This,
-  IN  CHAR8                        *Language,
-  OUT CHAR16                       **DriverName
-  )
+Rp1BusComponentNameGetDriverName(
+    IN EFI_COMPONENT_NAME_PROTOCOL *This, IN CHAR8 *Language,
+    OUT CHAR16 **DriverName)
 {
-  return LookupUnicodeString2 (
-           Language,
-           This->SupportedLanguages,
-           mRp1BusDriverNameTable,
-           DriverName,
-           (BOOLEAN)(This == &mRp1BusComponentName)
-           );
+  return LookupUnicodeString2(
+      Language, This->SupportedLanguages, mRp1BusDriverNameTable, DriverName,
+      (BOOLEAN)(This == &mRp1BusComponentName));
 }
 
 /**
@@ -290,34 +276,25 @@ Rp1BusComponentNameGetDriverName (
 **/
 EFI_STATUS
 EFIAPI
-Rp1BusComponentNameGetControllerName (
-  IN  EFI_COMPONENT_NAME_PROTOCOL  *This,
-  IN  EFI_HANDLE                   ControllerHandle,
-  IN  EFI_HANDLE                   ChildHandle        OPTIONAL,
-  IN  CHAR8                        *Language,
-  OUT CHAR16                       **ControllerName
-  )
+Rp1BusComponentNameGetControllerName(
+    IN EFI_COMPONENT_NAME_PROTOCOL *This, IN EFI_HANDLE ControllerHandle,
+    IN EFI_HANDLE ChildHandle OPTIONAL, IN CHAR8 *Language,
+    OUT CHAR16 **ControllerName)
 {
-  EFI_STATUS  Status;
+  EFI_STATUS Status;
 
   if (ChildHandle != NULL) {
     return EFI_UNSUPPORTED;
   }
 
-  Status = EfiTestManagedDevice (
-             ControllerHandle,
-             mRp1BusDriverBinding.DriverBindingHandle,
-             &gEfiPciIoProtocolGuid
-             );
-  if (EFI_ERROR (Status)) {
+  Status = EfiTestManagedDevice(
+      ControllerHandle, mRp1BusDriverBinding.DriverBindingHandle,
+      &gEfiPciIoProtocolGuid);
+  if (EFI_ERROR(Status)) {
     return Status;
   }
 
-  return LookupUnicodeString2 (
-           Language,
-           This->SupportedLanguages,
-           mRp1BusControllerNameTable,
-           ControllerName,
-           (BOOLEAN)(This == &mRp1BusComponentName)
-           );
+  return LookupUnicodeString2(
+      Language, This->SupportedLanguages, mRp1BusControllerNameTable,
+      ControllerName, (BOOLEAN)(This == &mRp1BusComponentName));
 }

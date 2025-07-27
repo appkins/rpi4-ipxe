@@ -10,9 +10,9 @@
  *
  **/
 
-#include <Library/IoLib.h>
 #include <Library/ArmPlatformLib.h>
 #include <Library/DebugLib.h>
+#include <Library/IoLib.h>
 #include <Pi/PiBootMode.h>
 
 #include <Ppi/ArmMpCoreInfo.h>
@@ -26,69 +26,49 @@
 
 **/
 EFI_BOOT_MODE
-ArmPlatformGetBootMode (
-  VOID
-  )
-{
-  return BOOT_WITH_FULL_CONFIGURATION;
-}
+ArmPlatformGetBootMode(VOID) { return BOOT_WITH_FULL_CONFIGURATION; }
 
 /**
   This function is called by PrePeiCore, in the SEC phase.
 **/
 RETURN_STATUS
-ArmPlatformInitialize (
-  IN  UINTN  MpId
-  )
-{
-  return RETURN_SUCCESS;
-}
+ArmPlatformInitialize(IN UINTN MpId) { return RETURN_SUCCESS; }
 
-VOID
-ArmPlatformInitializeSystemMemory (
-  VOID
-  )
-{
-}
+VOID ArmPlatformInitializeSystemMemory(VOID) {}
 
 STATIC ARM_CORE_INFO mRpiInfoTable[] = {
-  { 0x000, }, // Cluster 0, Core 0
-  { 0x100, }, // Cluster 0, Core 1
-  { 0x200, }, // Cluster 0, Core 2
-  { 0x300, }, // Cluster 0, Core 3
+    {
+        0x000,
+    }, // Cluster 0, Core 0
+    {
+        0x100,
+    }, // Cluster 0, Core 1
+    {
+        0x200,
+    }, // Cluster 0, Core 2
+    {
+        0x300,
+    }, // Cluster 0, Core 3
 };
 
 STATIC
 EFI_STATUS
-PrePeiCoreGetMpCoreInfo (
-  OUT UINTN          *CoreCount,
-  OUT ARM_CORE_INFO  **ArmCoreTable
-  )
+PrePeiCoreGetMpCoreInfo(OUT UINTN *CoreCount, OUT ARM_CORE_INFO **ArmCoreTable)
 {
   // Only support one cluster
-  *CoreCount = sizeof (mRpiInfoTable) / sizeof (ARM_CORE_INFO);
+  *CoreCount    = sizeof(mRpiInfoTable) / sizeof(ARM_CORE_INFO);
   *ArmCoreTable = mRpiInfoTable;
 
   return EFI_SUCCESS;
 }
 
-STATIC ARM_MP_CORE_INFO_PPI mMpCoreInfoPpi = {
-  PrePeiCoreGetMpCoreInfo
-};
+STATIC ARM_MP_CORE_INFO_PPI   mMpCoreInfoPpi      = {PrePeiCoreGetMpCoreInfo};
 STATIC EFI_PEI_PPI_DESCRIPTOR mPlatformPpiTable[] = {
-  {
-    EFI_PEI_PPI_DESCRIPTOR_PPI,
-    &gArmMpCoreInfoPpiGuid,
-    &mMpCoreInfoPpi
-  }
-};
+    {EFI_PEI_PPI_DESCRIPTOR_PPI, &gArmMpCoreInfoPpiGuid, &mMpCoreInfoPpi}};
 
-VOID
-ArmPlatformGetPlatformPpiList (
-  OUT UINTN                   *PpiListSize,
-  OUT EFI_PEI_PPI_DESCRIPTOR  **PpiList
-  )
+VOID ArmPlatformGetPlatformPpiList(
+    OUT UINTN *PpiListSize, OUT EFI_PEI_PPI_DESCRIPTOR **PpiList)
 {
-  *PpiListSize = sizeof (mPlatformPpiTable);
-  *PpiList = mPlatformPpiTable;
+  *PpiListSize = sizeof(mPlatformPpiTable);
+  *PpiList     = mPlatformPpiTable;
 }

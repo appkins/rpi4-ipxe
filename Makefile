@@ -145,7 +145,7 @@ check-deps:
 .PHONY: apply-templates
 apply-templates:
 	@echo "Applying template overlays to platforms directory..."
-	@echo "Copying $(TEMPLATES_DIR) with Redfish enhancements..."
+	@echo "Copying $(TEMPLATES_DIR)/* with Redfish enhancements..."
 	@cp -r $(TEMPLATES_DIR)/* platforms/
 
 # Set up EDK2 BaseTools
@@ -293,15 +293,11 @@ $(FIRMWARE_FILE): | setup-edk2 apply-templates $(KEY_FILES)
 		-p platforms/Platform/RaspberryPi/RPi4/RPi4.dsc \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor=L"$(PROJECT_URL)" \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString=L"UEFI Firmware $(VERSION)" \
-		--pcd gEfiRedfishPkgTokenSpaceGuid.PcdRedfishHostName="ironic.appkins.io" \
+		--pcd gEfiRedfishPkgTokenSpaceGuid.PcdRedfishHostName="redfish.appkins.io" \
 		--pcd gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServiceUuid="00000000-0000-0000-0000-000000000001" \
 		--pcd gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServicePort=5000 \
+		--pcd gRaspberryPiTokenSpaceGuid.PcdRedfishServiceAuthenticationEnabled=TRUE \
 		$(BUILD_FLAGS) $(DEFAULT_KEYS) $(TLS_DISABLE_FLAGS)
-
-# Copy firmware to root directory
-$(ARCHIVE_DIR)/RPI_EFI.fd: $(FIRMWARE_FILE)
-	@echo "Copying firmware to root directory..."
-	cp $(FIRMWARE_FILE) $(ARCHIVE_DIR)/RPI_EFI.fd
 
 $(BRCM_DIR):
 	mkdir -p $@
@@ -359,6 +355,11 @@ $(ARCHIVE_DIR)/config.txt:
 $(ARCHIVE_DIR)/Readme.md:
 	cp Readme.md $(ARCHIVE_DIR)/Readme.md
 
+# Copy firmware to root directory
+$(ARCHIVE_DIR)/RPI_EFI.fd: $(FIRMWARE_FILE) | $(ARCHIVE_DIR)
+	@echo "Copying firmware to root directory..."
+	cp $(FIRMWARE_FILE) $(ARCHIVE_DIR)/RPI_EFI.fd
+
 $(BUILD_DIR)/$(IMAGE_FILE): $(BUILD_DIR)/$(ARCHIVE_FILE)
 	@echo "Creating disk image from firmware archive..."
 	@echo "Converting $(BUILD_DIR)/$(ARCHIVE_FILE) to $(BUILD_DIR)/$(IMAGE_FILE)..."
@@ -404,6 +405,13 @@ checksums: $(FIRMWARE_FILE) $(BUILD_DIR)/$(ARCHIVE_FILE)
 .PHONY: build
 build: check-deps $(ARCHIVE_DIR)/RPI_EFI.fd download-rpi-files setup-brcm $(BUILD_DIR)/$(ARCHIVE_FILE) checksums
 
+# Clean edk2 submodule to remote state
+.PHONY: clean-edk2
+clean-edk2:
+	@echo "Resetting edk2 submodule to remote state..."
+	git submodule update --init --force --recursive edk2
+	cd edk2 && git clean -fd && git reset --hard HEAD && git pull --recurse-submodules --force
+
 # Clean platforms submodule to remote state
 .PHONY: clean-platforms
 clean-platforms:
@@ -413,7 +421,7 @@ clean-platforms:
 
 # Clean build artifacts
 .PHONY: clean
-clean: stop-simulator clean-platforms
+clean: stop-simulator clean-platforms clean-edk2
 	@echo "Cleaning build artifacts..."
 	$(MAKE) -C $(IPXE_DIR) clean
 	rm -rf Build/

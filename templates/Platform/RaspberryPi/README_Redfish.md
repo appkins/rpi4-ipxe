@@ -25,7 +25,9 @@ This implementation adds Redfish Host Interface support to the Raspberry Pi plat
 
 ### Configuration Variables
 
-The following EFI variables are used for Redfish configuration:
+The following EFI variables and PCDs are used for Redfish configuration:
+
+#### EFI Variables
 
 | Variable Name | Type | Description |
 |---------------|------|-------------|
@@ -34,6 +36,18 @@ The following EFI variables are used for Redfish configuration:
 | `RedfishServicePassword` | STRING | Password for HTTP Basic auth |
 
 All variables use the GUID: `FB833014-7A04-42F6-881A-374D9DB6293A`
+
+#### PCDs
+
+The following PCDs are also available for build-time configuration:
+
+| PCD Name | Type | Default | Description |
+|----------|------|---------|-------------|
+| `gRaspberryPiTokenSpaceGuid.PcdRedfishServiceAuthenticationEnabled` | UINT8 | 0 | Authentication enabled flag |
+| `gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId` | VOID* | "" | Default username |
+| `gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword` | VOID* | "" | Default password |
+
+These PCDs are synced with the corresponding EFI variables in ConfigDxe.
 
 ### Authentication Modes
 
@@ -122,3 +136,34 @@ The library identifies Raspberry Pi network interfaces by checking for:
 - [ ] Configurable network parameters via EFI variables
 - [ ] Integration with platform firmware variables
 - [ ] Support for additional authentication methods
+
+### Platform Build Configuration
+
+To integrate this into your platform build:
+
+1. **Add PCD Definitions:**
+
+   Ensure `templates/Platform/RaspberryPi/RaspberryPi.dec` is included in your platform packages.
+
+2. **Configure Default Values:**
+
+   In your platform `.dsc` file, add the following to `[PcdsDynamicHii.common.DEFAULT]`:
+
+   ```ini
+   # Redfish service configuration
+   gRaspberryPiTokenSpaceGuid.PcdRedfishServiceAuthenticationEnabled|L"RedfishServiceAuthenticationEnabled"|gConfigDxeFormSetGuid|0x0|0
+   gRaspberryPiTokenSpaceGuid.PcdRedfishServiceUserId|L"RedfishServiceUserId"|gConfigDxeFormSetGuid|0x0|""
+   gRaspberryPiTokenSpaceGuid.PcdRedfishServicePassword|L"RedfishServicePassword"|gConfigDxeFormSetGuid|0x0|""
+   ```
+
+3. **Add to Library Classes:**
+
+   Replace the null implementations with the Raspberry Pi versions:
+
+   ```ini
+   [LibraryClasses]
+     RedfishPlatformHostInterfaceLib|templates/Platform/RaspberryPi/Library/RedfishPlatformHostInterfaceLib/RedfishPlatformHostInterfaceLib.inf
+     RedfishPlatformCredentialLib|templates/Platform/RaspberryPi/Library/RedfishPlatformCredentialLib/RedfishPlatformCredentialLib.inf
+   ```
+
+The ConfigDxe driver will automatically create the necessary EFI variables and synchronize them with the PCDs during firmware initialization.
