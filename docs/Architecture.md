@@ -4,6 +4,42 @@
 
 This document analyzes the EDK2 Redfish client architecture to understand when, how, and under what conditions the Redfish client makes HTTP calls to the Redfish service, and whether it's possible to bypass the Host Interface in favor of out-of-band HTTP-only operation.
 
+## Project Structure
+
+Based on Project MU:
+
+```txt
+rpi4_uefi/
+├── Build/
+├── Common/
+│   ├── NON_OSI/        # Proprietary code
+│   ├── EDK2/
+│   └── PLATFORMS/      # Shared code for EDK2 Platform Features
+├── Features/
+│   ├── REDFISH_CLIENT  # Submodule feature library
+│   ├── ManageabilityPkg
+├── Conf/
+├── Platform/
+│   ├── RaspberryPi/
+│   │   ├── SurfKbl/
+│   │   │   └── Laptop/ # Surface Laptop-Specific Platform Code
+│   │   └── ...
+│   └── Others/
+│       └── ...
+├── Silicon/
+│   ├── Intel/
+│   │   ├── KBL/                # Intel KBL Reference Code
+│   │   ├── MU/                 # Project Mu Intel Common Code
+│   │   ├── MU_TIANO/           # Project Mu Intel Code from TianoCore
+│   │   └── SURF_KBL/           # Surface Customizations/Overrides for KBL Ref Code
+│   └── SURFACE/                # Shared code to enable common HW like ECs
+├── .gitattributes
+├── .gitignore
+└── .gitmodules
+```
+
+The "ALL CAPS" directories are submodules.
+
 ## Key Components
 
 ### 1. RedfishFeatureCoreDxe
@@ -203,7 +239,7 @@ The RPi4 `RedfishPlatformHostInterfaceLib` already supports variable-based confi
 ```c
 // Current variables used:
 - RedfishServiceIpAddress     (Service endpoint IP)
-- RedfishServiceIpPort        (Service port, default 5000)  
+- RedfishServiceIpPort        (Service port, default 5000)
 - RedfishServiceUserId        (Authentication username)
 - RedfishServicePassword      (Authentication password)
 - RedfishServiceAuthenticationEnabled (Auth toggle)
@@ -225,7 +261,7 @@ DEBUG_PRINT_ERROR_LEVEL = 0x8000004F
 
 // Key debug categories:
 DEBUG_MANAGEABILITY     // Redfish operations
-DEBUG_ERROR            // Error conditions  
+DEBUG_ERROR            // Error conditions
 DEBUG_INFO             // Informational messages
 ```
 

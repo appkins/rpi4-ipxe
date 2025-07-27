@@ -28,7 +28,6 @@
 #include <Library/PcdLib.h>
 
 #include <Protocol/RestEx.h>
-#include <Protocol/RestExServiceBinding.h>
 
 #include <Guid/EventGroup.h>
 

@@ -75,8 +75,7 @@ BUILD_FLAGS := -D NETWORK_ALLOW_HTTP_CONNECTIONS=TRUE \
                -D SECURE_BOOT_ENABLE=TRUE \
                -D INCLUDE_TFTP_COMMAND=TRUE \
                -D NETWORK_ISCSI_ENABLE=TRUE \
-               -D SMC_PCI_SUPPORT=1 \
-			   -D NDEBUG=FALSE
+               -D SMC_PCI_SUPPORT=1
 TLS_DISABLE_FLAGS := -D NETWORK_TLS_ENABLE=FALSE \
                      -D NETWORK_ALLOW_HTTP_CONNECTIONS=TRUE
 DEFAULT_KEYS := -D DEFAULT_KEYS=TRUE \
@@ -289,7 +288,7 @@ $(FIRMWARE_FILE): | setup-edk2 apply-templates $(KEY_FILES)
 	export PACKAGES_PATH="$(PACKAGES_PATH)" && \
 	export GCC5_AARCH64_PREFIX="$(GCC5_AARCH64_PREFIX)" && \
 	. edk2/edksetup.sh && \
-	build -a $(ARCH) -t $(COMPILER) -b RELEASE \
+	build -a $(ARCH) -t $(COMPILER) -b DEBUG \
 		-p platforms/Platform/RaspberryPi/RPi4/RPi4.dsc \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor=L"$(PROJECT_URL)" \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString=L"UEFI Firmware $(VERSION)" \
@@ -405,13 +404,6 @@ checksums: $(FIRMWARE_FILE) $(BUILD_DIR)/$(ARCHIVE_FILE)
 .PHONY: build
 build: check-deps $(ARCHIVE_DIR)/RPI_EFI.fd download-rpi-files setup-brcm $(BUILD_DIR)/$(ARCHIVE_FILE) checksums
 
-# Clean edk2 submodule to remote state
-.PHONY: clean-edk2
-clean-edk2:
-	@echo "Resetting edk2 submodule to remote state..."
-	git submodule update --init --force --recursive edk2
-	cd edk2 && git clean -fd && git reset --hard HEAD && git pull --recurse-submodules --force
-
 # Clean platforms submodule to remote state
 .PHONY: clean-platforms
 clean-platforms:
@@ -421,8 +413,15 @@ clean-platforms:
 
 # Clean build artifacts
 .PHONY: clean
-clean: stop-simulator clean-platforms clean-edk2
+clean: stop-simulator clean-platforms
 	@echo "Cleaning build artifacts..."
+	for mod in $$(cat .gitmodules | grep path | cut -d'=' -f 2 | tr -d ' '); do \
+    git submodule update --init --force "$${mod}" && \
+    cd "$${mod}" && \
+    git clean -fd && \
+	  git reset --hard HEAD && \
+	  cd ..; \
+	done
 	$(MAKE) -C $(IPXE_DIR) clean
 	rm -rf Build/
 	rm -rf firmware/build
