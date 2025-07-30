@@ -1,24 +1,24 @@
-[submodule "edk2"]
-	path = edk2
+[submodule "Common/EDK2"]
+	path = Common/EDK2
 	url = https://github.com/tianocore/edk2.git
 	head = 4cb3e8d46721c7d3410cc347e3262a64421e913c
-[submodule "platforms"]
-	path = platforms
+[submodule "Common/PLATFORMS"]
+	path = Common/PLATFORMS
 	url = https://github.com/tianocore/edk2-platforms.git
 	head = a3a8772eaf1cb3392154f52fd641e933a71e72ce
-[submodule "non-osi"]
-	path = non-osi
+[submodule "Common/NON_OSI"]
+	path = Common/NON_OSI
 	url = https://github.com/tianocore/edk2-non-osi.git
 	head = ea2040c2d4e2200557e87b9f9fbd4f8fb7a2b6e8
-[submodule "redfish-client"]
-	path = redfish-client
+[submodule "Features/REDFISH_CLIENT"]
+	path = Features/REDFISH_CLIENT
 	url = https://github.com/tianocore/edk2-redfish-client.git
 	head = 79e6d75f7d2899f14f3207c20daca94e215d8e74
-[submodule "ipxe"]
-	path = ipxe
+[submodule "Features/IPXE"]
+	path = Features/IPXE
 	url = https://github.com/ipxe/ipxe.git
 	head = 6ca597eee9f95b846a3c2dc1231e63cfc02272c1
-[submodule "firmware"]
-	path = firmware
+[submodule "Common/FIRMWARE"]
+	path = Common/FIRMWARE
 	url = https://github.com/ARM-software/arm-trusted-firmware.git
   head = 8a8904aaddcc9497b2c3d110785b52e4d1dca336
