@@ -1,5 +1,7 @@
 # Makefile for RPi4 UEFI firmware build with Redfish integration
 
+BUILD_TYPE ?= RELEASE
+
 # Configuration variables
 PROJECT_URL := https://github.com/pftf/RPi4
 ARCH := AARCH64
@@ -20,13 +22,10 @@ WORKSPACE := $(PWD)
 KEYS_DIR := keys
 BUILD_DIR := Build
 ARCHIVE_DIR := $(BUILD_DIR)/archive
-FIRMWARE_DIR := $(BUILD_DIR)/RPi4/RELEASE_$(COMPILER)/FV
+FIRMWARE_DIR := $(BUILD_DIR)/RPi4/$(BUILD_TYPE)_$(COMPILER)/FV
 OVERLAYS_DIR := $(ARCHIVE_DIR)/overlays
 BRCM_DIR := $(ARCHIVE_DIR)/firmware
-IPXE_DIR := ipxe/src
-IPXE_LOCAL_DIR := $(IPXE_DIR)/config/local
 TEMPLATES_DIR := templates
-SIMULATOR_DIR := redfish-client/Tools/Redfish-Profile-Simulator
 
 # Generated files
 ARCHIVE_FILE := RPi4_UEFI_Firmware_$(VERSION).zip
@@ -35,7 +34,6 @@ DMG_FILE := $(addsuffix .dmg, $(basename $(IMAGE_FILE)))
 FIRMWARE_FILE := $(FIRMWARE_DIR)/RPI_EFI.fd
 BRCM_DEB_FILE := $(BRCM_DIR)/$(notdir $(BRCM_FIRMWARE_URL))
 BRCM_ARCHIVE := $(BRCM_DIR)/data.tar.xz
-SIMULATOR_PID_FILE := $(BUILD_DIR)/simulator.pid
 
 # Key files
 KEY_FILES := $(KEYS_DIR)/pk.cer \
@@ -68,10 +66,8 @@ OVERLAY_FILES := $(addprefix $(OVERLAYS_DIR)/, $(OVERLAY_FILES))
 BRCM_FILES := $(addprefix $(BRCM_DIR)/, $(BRCM_FILES))
 
 # Build flags
-PACKAGES_PATH := $(WORKSPACE)/edk2:$(WORKSPACE)/platforms:$(WORKSPACE)/non-osi:$(WORKSPACE):$(WORKSPACE)/redfish-client
+PACKAGES_PATH := $(WORKSPACE)/edk2:$(WORKSPACE)/platforms:$(WORKSPACE)/non-osi:$(WORKSPACE)
 BUILD_FLAGS := -D NETWORK_ALLOW_HTTP_CONNECTIONS=TRUE \
-               -D REDFISH_ENABLE=TRUE \
-               -D REDFISH_CLIENT=TRUE \
                -D SECURE_BOOT_ENABLE=TRUE \
                -D INCLUDE_TFTP_COMMAND=TRUE \
                -D NETWORK_ISCSI_ENABLE=TRUE \
@@ -88,40 +84,9 @@ DEFAULT_KEYS := -D DEFAULT_KEYS=TRUE \
                 -D DB_DEFAULT_FILE4=$(WORKSPACE)/$(KEYS_DIR)/ms_db4.cer \
                 -D DBX_DEFAULT_FILE1=$(WORKSPACE)/$(KEYS_DIR)/arm64_dbx.bin
 
-TRUSTED_FIRMWARE_SRC := firmware/build/rpi5/release/bl31.bin
-TRUSTED_FIRMWARE_DST := templates/Platform/RaspberryPi/RPi5/TrustedFirmware/bl31.bin
-
 # Default target
 .PHONY: all
 all: $(FIRMWARE_FILE) $(BUILD_DIR)/$(ARCHIVE_FILE)
-
-$(IPXE_LOCAL_DIR):
-	@echo "Creating local configuration directory..."
-	@mkdir -p $(IPXE_LOCAL_DIR)
-
-$(IPXE_LOCAL_DIR)/general.h: $(IPXE_LOCAL_DIR)
-	@echo "Creating general.h file..."
-	@echo "#define NSLOOKUP_CMD" > $@
-	@echo "#define PING_CMD" >> $@
-	@echo "#define NTP_CMD" >> $@
-	@echo "#define VLAN_CMD" >> $@
-	@echo "#define IMAGE_EFI" >> $@
-	@echo "#define DOWNLOAD_PROTO_HTTPS" >> $@
-	@echo "#define DOWNLOAD_PROTO_FTP" >> $@
-	@echo "#define DOWNLOAD_PROTO_NFS" >> $@
-	@echo "#define DOWNLOAD_PROTO_FILE" >> $@
-
-$(IPXE_DIR)/bin-arm64-efi/snp.efi: $(IPXE_LOCAL_DIR)/general.h
-	@echo "Building iPXE SNP driver..."
-	export C_INCLUDE_PATH="/opt/homebrew/opt/aarch64-elf-gcc/lib/gcc/aarch64-elf/15.1.0/include" && \
-	$(MAKE) -C $(IPXE_DIR) \
-		bin-arm64-efi/snp.efi \
-		-j4 \
-		CONFIG=rpi \
-		CROSS=$(GCC5_AARCH64_PREFIX)
-
-.PHONY: setup-ipxe
-setup-ipxe: $(IPXE_DIR)/bin-arm64-efi/snp.efi
 
 # Check for required tools
 .PHONY: check-deps
@@ -145,7 +110,7 @@ check-deps:
 apply-templates:
 	@echo "Applying template overlays to platforms directory..."
 	@echo "Copying $(TEMPLATES_DIR)/* with Redfish enhancements..."
-	@cp -r $(TEMPLATES_DIR)/* platforms/
+	@echo "cp -r $(TEMPLATES_DIR)/* platforms/"
 
 # Set up EDK2 BaseTools
 .PHONY: setup-edk2
@@ -154,27 +119,6 @@ setup-edk2:
 	@echo "Using native macOS toolchain for BaseTools..."
 	PATH="/usr/bin:/bin:/usr/sbin:/sbin" $(MAKE) -C edk2/BaseTools CC=clang CXX=clang++ AR=/usr/bin/ar RANLIB=/usr/bin/ranlib
 	@echo "EDK2 BaseTools setup complete"
-
-$(TRUSTED_FIRMWARE_SRC):
-	@cd firmware && \
-	CROSS_COMPILE=$(GCC5_AARCH64_PREFIX) \
-	$(MAKE) \
-		PLAT=rpi5 \
-		RPI3_PRELOADED_DTB_BASE=0x1F0000 \
-		PRELOADED_BL33_BASE=0x20000 \
-		SUPPORT_VFP=1 \
-		SMC_PCI_SUPPORT=1 \
-		DEBUG=0 \
-		all
-
-$(TRUSTED_FIRMWARE_DST): $(TRUSTED_FIRMWARE_SRC)
-	@echo "Creating $@..."
-	@echo "Source $<"
-	@mkdir -p $(dir $@)
-	@cp $< $@
-
-.PHONY: setup-firmware
-setup-firmware: $(TRUSTED_FIRMWARE_DST)
 
 # Create keys directory
 $(KEYS_DIR):
@@ -218,69 +162,6 @@ $(KEYS_DIR)/arm64_dbx.bin: | $(KEYS_DIR)
 .PHONY: setup-keys
 setup-keys: $(KEY_FILES)
 
-# Redfish Profile Simulator targets
-.PHONY: setup-simulator
-setup-simulator:
-	@echo "Setting up Redfish Profile Simulator..."
-	@if [ ! -d $(SIMULATOR_DIR)/venv ]; then \
-		echo "Creating Python virtual environment..."; \
-		cd $(SIMULATOR_DIR) && python3 -m venv venv; \
-	fi
-	@echo "Installing dependencies in virtual environment..."
-	@cd $(SIMULATOR_DIR) && source venv/bin/activate && pip install -r requirements.txt
-	@echo "Simulator setup complete"
-
-.PHONY: start-simulator
-start-simulator: setup-simulator
-	@echo "Starting Redfish Profile Simulator..."
-	@if [ -f $(SIMULATOR_PID_FILE) ] && kill -0 `cat $(SIMULATOR_PID_FILE)` 2>/dev/null; then \
-		echo "Simulator is already running (PID: `cat $(SIMULATOR_PID_FILE)`)"; \
-	else \
-		mkdir -p $(BUILD_DIR); \
-		cd $(SIMULATOR_DIR) && source venv/bin/activate && nohup python redfishProfileSimulator.py -H 0.0.0.0 -P 5000 > $(WORKSPACE)/$(BUILD_DIR)/simulator.log 2>&1 & \
-		echo $$! > $(WORKSPACE)/$(BUILD_DIR)/simulator.pid && \
-		echo "Simulator started (PID: $$!) on http://localhost:5000/redfish/v1/"; \
-		echo "Credentials: admin/pwd123456 or root/password123456 (for sessions)"; \
-		echo "Log file: $(BUILD_DIR)/simulator.log"; \
-	fi
-
-.PHONY: stop-simulator
-stop-simulator:
-	@echo "Stopping Redfish Profile Simulator..."
-	@if [ -f $(SIMULATOR_PID_FILE) ]; then \
-		if kill -0 `cat $(SIMULATOR_PID_FILE)` 2>/dev/null; then \
-			kill `cat $(SIMULATOR_PID_FILE)` && \
-			echo "Simulator stopped"; \
-		else \
-			echo "Simulator was not running"; \
-		fi; \
-		rm -f $(SIMULATOR_PID_FILE); \
-	else \
-		echo "No PID file found - simulator may not be running"; \
-	fi
-
-.PHONY: simulator-status
-simulator-status:
-	@if [ -f $(SIMULATOR_PID_FILE) ] && kill -0 `cat $(SIMULATOR_PID_FILE)` 2>/dev/null; then \
-		echo "Simulator is running (PID: `cat $(SIMULATOR_PID_FILE)`)"; \
-		echo "Available at: http://localhost:5000/redfish/v1/"; \
-		echo "Credentials: admin/pwd123456 or root/password123456 (for sessions)"; \
-	else \
-		echo "Simulator is not running"; \
-	fi
-
-.PHONY: test-simulator
-test-simulator:
-	@echo "Testing Redfish Profile Simulator endpoints..."
-	@echo "1. Service Root:"
-	@curl -s -u admin:pwd123456 http://localhost:5000/redfish/v1 | python3 -m json.tool | head -10 || echo "Failed to connect to simulator"
-	@echo ""
-	@echo "2. Systems Collection:"
-	@curl -s -u admin:pwd123456 http://localhost:5000/redfish/v1/Systems | python3 -m json.tool | head -10 || echo "Failed to get Systems"
-	@echo ""
-	@echo "3. Sample System BIOS (first 5 attributes):"
-	@curl -s -u admin:pwd123456 http://localhost:5000/redfish/v1/Systems/2M220100SL/Bios | python3 -c "import sys,json; data=json.load(sys.stdin); attrs=list(data['Attributes'].items())[:5]; print(json.dumps(dict(attrs), indent=2))" || echo "Failed to get BIOS settings"
-
 # Build UEFI firmware
 $(FIRMWARE_FILE): | setup-edk2 apply-templates $(KEY_FILES)
 	@echo "Building UEFI firmware with Redfish early synchronization support..."
@@ -288,14 +169,14 @@ $(FIRMWARE_FILE): | setup-edk2 apply-templates $(KEY_FILES)
 	export PACKAGES_PATH="$(PACKAGES_PATH)" && \
 	export GCC5_AARCH64_PREFIX="$(GCC5_AARCH64_PREFIX)" && \
 	. edk2/edksetup.sh && \
-	build -a $(ARCH) -t $(COMPILER) -b DEBUG \
+	build -a $(ARCH) -t $(COMPILER) -b $(BUILD_TYPE) \
 		-p platforms/Platform/RaspberryPi/RPi4/RPi4.dsc \
+    --pcd gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB=1 \
+    --pcd gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB=0 \
+    --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdBootDiscoveryPolicy=1 \
+    --pcd gRaspberryPiTokenSpaceGuid.PcdSystemTableMode=1 \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor=L"$(PROJECT_URL)" \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString=L"UEFI Firmware $(VERSION)" \
-		--pcd gEfiRedfishPkgTokenSpaceGuid.PcdRedfishHostName="redfish.appkins.io" \
-		--pcd gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServiceUuid="00000000-0000-0000-0000-000000000001" \
-		--pcd gEfiRedfishPkgTokenSpaceGuid.PcdRedfishServicePort=5000 \
-		--pcd gRaspberryPiTokenSpaceGuid.PcdRedfishServiceAuthenticationEnabled=TRUE \
 		$(BUILD_FLAGS) $(DEFAULT_KEYS) $(TLS_DISABLE_FLAGS)
 
 $(BRCM_DIR):
@@ -376,7 +257,7 @@ flash-ssd: $(BUILD_DIR)/$(ARCHIVE_FILE)
 	@echo "Use the following command to flash the image:"
 	@echo "Eject the SD card before flashing!"
 	diskutil eraseDisk FAT32 BOOT MBRFormat "$(shell diskutil list external physical | grep -E '^/' | cut -d' ' -f1 | head -n1)"
-	cp -r $(ARCHIVE_DIR)/* /Volumes/BOOT/
+	cp -rf $(ARCHIVE_DIR)/* /Volumes/BOOT/
 
 .PHONY: unmount-disk
 unmount-disk: flash-ssd
@@ -413,7 +294,7 @@ clean-platforms:
 
 # Clean build artifacts
 .PHONY: clean
-clean: stop-simulator clean-platforms
+clean: clean-platforms
 	@echo "Cleaning build artifacts..."
 	for mod in $$(cat .gitmodules | grep path | cut -d'=' -f 2 | tr -d ' '); do \
     git submodule update --init --force "$${mod}" && \
@@ -422,7 +303,6 @@ clean: stop-simulator clean-platforms
 	  git reset --hard HEAD && \
 	  cd ..; \
 	done
-	$(MAKE) -C $(IPXE_DIR) clean
 	rm -rf Build/
 	rm -rf firmware/build
 
@@ -446,13 +326,6 @@ help:
 	@echo "  download-rpi-files - Download Raspberry Pi support files"
 	@echo "  checksums          - Display SHA-256 checksums"
 	@echo ""
-	@echo "Redfish Simulator targets:"
-	@echo "  setup-simulator    - Install Python dependencies for simulator"
-	@echo "  start-simulator    - Start Redfish Profile Simulator"
-	@echo "  stop-simulator     - Stop the running simulator"
-	@echo "  simulator-status   - Check simulator running status"
-	@echo "  test-simulator     - Test simulator endpoints and display sample data"
-	@echo ""
 	@echo "Cleanup targets:"
 	@echo "  clean              - Clean build artifacts and reset platforms"
 	@echo "  clean-platforms    - Reset platforms submodule to remote state"
@@ -467,10 +340,3 @@ help:
 	@echo "  ms_kek*.cer    - Microsoft Key Exchange Keys"
 	@echo "  ms_db*.cer     - Microsoft Database Keys"
 	@echo "  arm64_dbx.bin  - ARM64 Forbidden Signatures Database"
-	@echo ""
-	@echo "Redfish Testing Workflow:"
-	@echo "  1. make start-simulator     # Start Redfish service"
-	@echo "  2. make build              # Build firmware with Redfish support"
-	@echo "  3. Boot RPi4 firmware      # Flash and boot the firmware"
-	@echo "  4. Run RedfishPlatformConfig.efi from EFI Shell"
-	@echo "  5. Reboot to test BIOS synchronization"
