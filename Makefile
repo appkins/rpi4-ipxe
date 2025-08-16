@@ -173,7 +173,7 @@ $(FIRMWARE_FILE): | setup-edk2 apply-templates $(KEY_FILES)
 		-p platforms/Platform/RaspberryPi/RPi4/RPi4.dsc \
     --pcd gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB=1 \
     --pcd gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB=0 \
-    --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdBootDiscoveryPolicy=1 \
+    --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdBootDiscoveryPolicy=2 \
     --pcd gRaspberryPiTokenSpaceGuid.PcdSystemTableMode=1 \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor=L"$(PROJECT_URL)" \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString=L"UEFI Firmware $(VERSION)" \
