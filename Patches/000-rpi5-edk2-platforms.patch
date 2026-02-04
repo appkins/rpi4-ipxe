@@ -692,7 +692,7 @@ index 2b24b22c..74865d79 100644
  [Protocols]
    gEfiSmbiosProtocolGuid           # PROTOCOL SOMETIMES_CONSUMED
 diff --git a/Platform/RaspberryPi/Drivers/RpiFirmwareDxe/RpiFirmwareDxe.c b/Platform/RaspberryPi/Drivers/RpiFirmwareDxe/RpiFirmwareDxe.c
-index f8767015..6d55d0c2 100644
+index f8767015..9c40b5c1 100644
 --- a/Platform/RaspberryPi/Drivers/RpiFirmwareDxe/RpiFirmwareDxe.c
 +++ b/Platform/RaspberryPi/Drivers/RpiFirmwareDxe/RpiFirmwareDxe.c
 @@ -1,5 +1,6 @@
@@ -794,7 +794,7 @@ index f8767015..6d55d0c2 100644
    ArmDataSynchronizationBarrier ();
  
    return EFI_SUCCESS;
-@@ -691,207 +710,53 @@ RpiFirmwareGetFirmwareRevision (
+@@ -691,208 +710,6 @@ RpiFirmwareGetFirmwareRevision (
    return EFI_SUCCESS;
  }
  
@@ -938,12 +938,7 @@ index f8767015..6d55d0c2 100644
 -
 -  return EFI_SUCCESS;
 -}
-+#pragma pack()
-+typedef struct {
-+  UINT32 Width;
-+  UINT32 Height;
-+} RPI_FW_FB_SIZE_TAG;
- 
+-
 -STATIC
 -CHAR8*
 -EFIAPI
@@ -952,21 +947,12 @@ index f8767015..6d55d0c2 100644
 -  )
 -{
 -  UINT32  Revision;
-+typedef struct {
-+  RPI_FW_BUFFER_HEAD        BufferHead;
-+  RPI_FW_TAG_HEAD           TagHead;
-+  RPI_FW_FB_SIZE_TAG        TagBody;
-+  UINT32                    EndTag;
-+} RPI_FW_GET_FB_SIZE_CMD;
- 
+-
 -  // If a negative ModelId is passed, detect it.
 -  if ((ManufacturerId < 0) && (RpiFirmwareGetModelRevision (&Revision) == EFI_SUCCESS)) {
 -    ManufacturerId = (Revision >> 16) & 0x0F;
 -  }
-+typedef struct {
-+  UINT32 Depth;
-+} RPI_FW_FB_DEPTH_TAG;
- 
+-
 -  switch (ManufacturerId) {
 -  // www.raspberrypi.org/documentation/hardware/raspberrypi/revision-codes/README.md
 -  case 0x00:
@@ -984,10 +970,7 @@ index f8767015..6d55d0c2 100644
 -    return "Unknown Manufacturer";
 -  }
 -}
-+typedef struct {
-+  UINT32 Pitch;
-+} RPI_FW_FB_PITCH_TAG;
- 
+-
 -STATIC
 -CHAR8*
 -EFIAPI
@@ -996,21 +979,12 @@ index f8767015..6d55d0c2 100644
 -  )
 -{
 -  UINT32  Revision;
-+typedef struct {
-+  UINT32 AlignmentBase;
-+  UINT32 Size;
-+} RPI_FW_FB_ALLOC_TAG;
- 
+-
 -  // If a negative CpuId is passed, detect it.
 -  if ((CpuId < 0) && (RpiFirmwareGetModelRevision (&Revision) == EFI_SUCCESS)) {
 -    CpuId = (Revision >> 12) & 0x0F;
 -  }
-+typedef struct {
-+  RPI_FW_BUFFER_HEAD        BufferHead;
-+  RPI_FW_TAG_HEAD           FreeFbTag;
-+  UINT32                    EndTag;
-+} RPI_FW_FREE_FB_CMD;
- 
+-
 -  switch (CpuId) {
 -  // www.raspberrypi.org/documentation/hardware/raspberrypi/revision-codes/README.md
 -  case 0x00:
@@ -1025,25 +999,11 @@ index f8767015..6d55d0c2 100644
 -    return "Unknown CPU Model";
 -  }
 -}
-+typedef struct {
-+  RPI_FW_BUFFER_HEAD        BufferHead;
-+  RPI_FW_TAG_HEAD           PhysSizeTag;
-+  RPI_FW_FB_SIZE_TAG        PhysSize;
-+  RPI_FW_TAG_HEAD           VirtSizeTag;
-+  RPI_FW_FB_SIZE_TAG        VirtSize;
-+  RPI_FW_TAG_HEAD           DepthTag;
-+  RPI_FW_FB_DEPTH_TAG       Depth;
-+  RPI_FW_TAG_HEAD           AllocFbTag;
-+  RPI_FW_FB_ALLOC_TAG       AllocFb;
-+  RPI_FW_TAG_HEAD           PitchTag;
-+  RPI_FW_FB_PITCH_TAG       Pitch;
-+  UINT32                    EndTag;
-+} RPI_FW_INIT_FB_CMD;
-+#pragma pack()
- 
+-
  STATIC
  EFI_STATUS
-@@ -1039,7 +904,7 @@ RpiFirmwareAllocFb (
+ EFIAPI
+@@ -1039,7 +856,7 @@ RpiFirmwareAllocFb (
    }
  
    *Pitch = Cmd->Pitch.Pitch;
@@ -1052,7 +1012,7 @@ index f8767015..6d55d0c2 100644
    *FbSize = Cmd->AllocFb.Size;
    ReleaseSpinLock (&mMailboxLock);
  
-@@ -1501,6 +1366,111 @@ RpiFirmwareNotifyGpioSetCfg (
+@@ -1501,6 +1318,111 @@ RpiFirmwareNotifyGpioSetCfg (
    return Status;
  }
  
@@ -1164,7 +1124,7 @@ index f8767015..6d55d0c2 100644
  STATIC RASPBERRY_PI_FIRMWARE_PROTOCOL mRpiFirmwareProtocol = {
    RpiFirmwareSetPowerState,
    RpiFirmwareGetMacAddress,
-@@ -1516,19 +1486,30 @@ STATIC RASPBERRY_PI_FIRMWARE_PROTOCOL mRpiFirmwareProtocol = {
+@@ -1516,19 +1438,30 @@ STATIC RASPBERRY_PI_FIRMWARE_PROTOCOL mRpiFirmwareProtocol = {
    RpiFirmwareGetSerial,
    RpiFirmwareGetModel,
    RpiFirmwareGetModelRevision,
@@ -1201,7 +1161,7 @@ index f8767015..6d55d0c2 100644
  /**
    Initialize the state information for the CPU Architectural Protocol
  
-@@ -1547,7 +1528,10 @@ RpiFirmwareDxeInitialize (
+@@ -1547,7 +1480,10 @@ RpiFirmwareDxeInitialize (
    )
  {
    EFI_STATUS      Status;
@@ -1213,7 +1173,7 @@ index f8767015..6d55d0c2 100644
  
    //
    // We only need one of these
-@@ -1556,14 +1540,14 @@ RpiFirmwareDxeInitialize (
+@@ -1556,14 +1492,14 @@ RpiFirmwareDxeInitialize (
  
    InitializeSpinLock (&mMailboxLock);
  
@@ -1231,7 +1191,7 @@ index f8767015..6d55d0c2 100644
               &mDmaBufferBusAddress, &mDmaBufferMapping);
    if (EFI_ERROR (Status)) {
      DEBUG ((DEBUG_ERROR, "%a: failed to map DMA buffer (Status == %r)\n", __func__));
-@@ -1586,6 +1570,42 @@ RpiFirmwareDxeInitialize (
+@@ -1586,6 +1522,42 @@ RpiFirmwareDxeInitialize (
      goto UnmapBuffer;
    }
  
@@ -2855,7 +2815,7 @@ index 00000000..4f6d3fc6
 +VOID* CONST ReferenceAcpiTable = &Dbg2;
 diff --git a/Platform/RaspberryPi/RPi5/AcpiTables/Dsdt.asl b/Platform/RaspberryPi/RPi5/AcpiTables/Dsdt.asl
 new file mode 100644
-index 00000000..8da9d718
+index 00000000..141fd449
 --- /dev/null
 +++ b/Platform/RaspberryPi/RPi5/AcpiTables/Dsdt.asl
 @@ -0,0 +1,450 @@
@@ -3045,7 +3005,7 @@ index 00000000..8da9d718
 +    // RP1 I/O Bridge
 +    //
 +    Device (RP1B) {
-+      Name (_HID, "RPIL0001")
++      Name (_HID, "RPIB0001")
 +      // Optional fallback for generic bus match
 +      Name (_CID, "ACPI0004")
 +      Name (_UID, 0x1)
@@ -6270,7 +6230,7 @@ index 00000000..90f63f51
 +  gRpiPlatformFormSetGuid = { 0x677a7ac5, 0x7d92, 0x4288, { 0x8b, 0xf0, 0x97, 0x04, 0x81, 0x02, 0xd1, 0x1c } }
 diff --git a/Platform/RaspberryPi/RPi5/RPi5.dsc b/Platform/RaspberryPi/RPi5/RPi5.dsc
 new file mode 100644
-index 00000000..426b82f0
+index 00000000..b691c617
 --- /dev/null
 +++ b/Platform/RaspberryPi/RPi5/RPi5.dsc
 @@ -0,0 +1,746 @@
@@ -6432,7 +6392,7 @@ index 00000000..426b82f0
 +  DebugAgentTimerLib|EmbeddedPkg/Library/DebugAgentTimerLibNull/DebugAgentTimerLibNull.inf
 +
 +  # Flattened Device Tree (FDT) access library
-+  FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf
++  FdtLib|MdePkg/Library/BaseFdtLib/BaseFdtLib.inf
 +
 +  # USB Libraries
 +  UefiUsbLib|MdePkg/Library/UefiUsbLib/UefiUsbLib.inf
@@ -6554,8 +6514,6 @@ index 00000000..426b82f0
 +  ## If TRUE, Graphics Output Protocol will be installed on virtual handle created by ConsplitterDxe.
 +  #  It could be set FALSE to save size.
 +  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutGopSupport|TRUE
-+  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutUgaSupport|FALSE
-+  gEfiMdePkgTokenSpaceGuid.PcdUgaConsumeSupport|FALSE
 +
 +[PcdsFixedAtBuild.common]
 +  gEfiMdePkgTokenSpaceGuid.PcdMaximumUnicodeStringLength|1000000
@@ -6638,8 +6596,8 @@ index 00000000..426b82f0
 +
 +[LibraryClasses.common]
 +  ArmLib|ArmPkg/Library/ArmLib/ArmBaseLib.inf
-+  ArmMmuLib|ArmPkg/Library/ArmMmuLib/ArmMmuBaseLib.inf
-+  ArmPlatformLib|Platform/RaspberryPi/RPi5/Library/PlatformLib/PlatformLib.inf
++  ArmMmuLib|UefiCpuPkg/Library/ArmMmuLib/ArmMmuBaseLib.inf
++  ArmPlatformLib|Platform/RaspberryPi/Library/PlatformLib/PlatformLib.inf
 +  TimerLib|ArmPkg/Library/ArmArchTimerLib/ArmArchTimerLib.inf
 +  CapsuleLib|MdeModulePkg/Library/DxeCapsuleLibNull/DxeCapsuleLibNull.inf
 +  UefiBootManagerLib|MdeModulePkg/Library/UefiBootManagerLib/UefiBootManagerLib.inf
@@ -6660,7 +6618,6 @@ index 00000000..426b82f0
 +
 +[PcdsFeatureFlag.common]
 +  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutGopSupport|TRUE
-+  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutUgaSupport|FALSE
 +  gEfiMdeModulePkgTokenSpaceGuid.PcdInstallAcpiSdtProtocol|TRUE
 +
 +[PcdsFixedAtBuild.common]
@@ -6723,6 +6680,9 @@ index 00000000..426b82f0
 +
 +  gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor|L"EDK2"
 +  gEfiMdeModulePkgTokenSpaceGuid.PcdSetNxForStack|TRUE
++
++[PcdsPatchableInModule]
++  gEfiMdeModulePkgTokenSpaceGuid.PcdSerialClockRate|500000000
 +
 +[PcdsDynamicHii.common.DEFAULT]
 +  #
@@ -11828,10 +11788,10 @@ index 00000000..31f876ae
 +  gBrcmStbSdhciDeviceProtocolGuid = { 0xd6c196f9, 0x9c8c, 0x448f, { 0xbd, 0x21, 0xd9, 0x76, 0xa8, 0x3a, 0x82, 0x7f } }
 diff --git a/Silicon/Broadcom/Drivers/BrcmStbSdhciDxe/BrcmStbSdhciDxe.c b/Silicon/Broadcom/Drivers/BrcmStbSdhciDxe/BrcmStbSdhciDxe.c
 new file mode 100644
-index 00000000..80e30a2d
+index 00000000..f4d57d0f
 --- /dev/null
 +++ b/Silicon/Broadcom/Drivers/BrcmStbSdhciDxe/BrcmStbSdhciDxe.c
-@@ -0,0 +1,224 @@
+@@ -0,0 +1,221 @@
 +/** @file
 + *
 + *  Copyright (c) 2023, Mario Bălănică <mariobalanica02@gmail.com>
@@ -11906,18 +11866,15 @@ index 00000000..80e30a2d
 +    return EFI_UNSUPPORTED;
 +  }
 +
-+  switch (PhaseType) {
-+    case EdkiiSdMmcSetSignalingVoltage:
-+      if (PhaseData == NULL) {
-+        return EFI_INVALID_PARAMETER;
-+      }
-+      if (Device->SetSignalingVoltage != NULL) {
-+        return Device->SetSignalingVoltage (Device, *(SD_MMC_SIGNALING_VOLTAGE *)PhaseData);
-+      }
-+      break;
-+
-+    default:
-+      break;
++  // Handle signaling voltage phase (defined as macro, not enum value)
++  if (PhaseType == (EDKII_SD_MMC_PHASE_TYPE)EdkiiSdMmcSetSignalingVoltage) {
++    if (PhaseData == NULL) {
++      return EFI_INVALID_PARAMETER;
++    }
++    if (Device->SetSignalingVoltage != NULL) {
++      return Device->SetSignalingVoltage (Device, *(SD_MMC_SIGNALING_VOLTAGE *)PhaseData);
++    }
++    return EFI_SUCCESS;
 +  }
 +
 +  return EFI_SUCCESS;
@@ -12171,10 +12128,10 @@ index 00000000..9c513a3f
 +  TRUE
 diff --git a/Silicon/Broadcom/Include/Protocol/BrcmStbSdhciDevice.h b/Silicon/Broadcom/Include/Protocol/BrcmStbSdhciDevice.h
 new file mode 100644
-index 00000000..7837862c
+index 00000000..e1290afc
 --- /dev/null
 +++ b/Silicon/Broadcom/Include/Protocol/BrcmStbSdhciDevice.h
-@@ -0,0 +1,47 @@
+@@ -0,0 +1,55 @@
 +/** @file
 + *
 + *  Copyright (c) 2023, Mario Bălănică <mariobalanica02@gmail.com>
@@ -12192,6 +12149,14 @@ index 00000000..7837862c
 +
 +#define BRCMSTB_SDHCI_DEVICE_PROTOCOL_GUID \
 +  { 0xd6c196f9, 0x9c8c, 0x448f, { 0xbd, 0x21, 0xd9, 0x76, 0xa8, 0x3a, 0x82, 0x7f } }
++
++// Extend EDKII_SD_MMC_PHASE_TYPE with additional phase for voltage signaling
++#define EdkiiSdMmcSetSignalingVoltage  (EdkiiSdMmcGetOperatingParam + 1)
++
++typedef enum {
++  SdMmcSignalingVoltage33,  ///< 3.3V signaling
++  SdMmcSignalingVoltage18   ///< 1.8V signaling
++} SD_MMC_SIGNALING_VOLTAGE;
 +
 +typedef struct _BRCMSTB_SDHCI_DEVICE_PROTOCOL BRCMSTB_SDHCI_DEVICE_PROTOCOL;
 +
@@ -18758,7 +18723,7 @@ index 00000000..28ec9639
 +#endif // __RP1_GPIO_DEVICE_PROTOCOL_H__
 diff --git a/Silicon/RaspberryPi/RpiSiliconPkg/Include/Rp1.asi b/Silicon/RaspberryPi/RpiSiliconPkg/Include/Rp1.asi
 new file mode 100644
-index 00000000..bf00d383
+index 00000000..2716c948
 --- /dev/null
 +++ b/Silicon/RaspberryPi/RpiSiliconPkg/Include/Rp1.asi
 @@ -0,0 +1,180 @@
@@ -18829,7 +18794,7 @@ index 00000000..bf00d383
 +
 +Device (GPIO)
 +{
-+  Name (_HID, "RPIL002")
++  Name (_HID, "RPIB0002")
 +  // Generic GPIO id for compatibility
 +  Name (_CID, "PNP0C40")
 +  Name (_UID, 0x0)
@@ -18892,7 +18857,7 @@ index 00000000..bf00d383
 +
 +Device (ETH0)
 +{
-+    Name (_HID, "RPIL003")
++    Name (_HID, "RPIB0003")
 +    Name (_UID, 0)
 +    // _CCA is inherited from the parent device (RP1)
 +    // No _STA => 0xF (always on) assumed by default

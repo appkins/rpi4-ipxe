@@ -1,11 +1,14 @@
-# Makefile for RPi4 UEFI firmware build
+# Makefile for Raspberry Pi 4/5 UEFI firmware build with ARM Trusted Firmware
 
+# Board model configuration (4 or 5), default to 4
+MODEL ?= 4
 BUILD_TYPE ?= RELEASE
 
 # Configuration variables
 PROJECT_URL := https://github.com/pftf/RPi4
 ARCH := AARCH64
 COMPILER := GCC5
+CROSS_COMPILE ?= aarch64-elf-
 GCC5_AARCH64_PREFIX ?= $(shell echo $${GCC5_AARCH64_PREFIX:-aarch64-elf-})
 START_ELF_VERSION := master
 DTB_VERSION := b49983637106e5fb33e2ae60d8c15a53187541e4
@@ -22,14 +25,22 @@ WORKSPACE := $(PWD)
 KEYS_DIR := keys
 BUILD_DIR := Build
 ARCHIVE_DIR := $(BUILD_DIR)/archive
-FIRMWARE_DIR := $(BUILD_DIR)/RPi4/$(BUILD_TYPE)_$(COMPILER)/FV
+FIRMWARE_DIR := $(BUILD_DIR)/RPi$(MODEL)/$(BUILD_TYPE)_$(COMPILER)/FV
 OVERLAYS_DIR := $(ARCHIVE_DIR)/overlays
 BRCM_DIR := $(ARCHIVE_DIR)/firmware
-TEMPLATES_DIR := templates
+PATCHES_DIR := patches
+
+# ARM Trusted Firmware
+TFA_DIR := firmware
+TFA_BUILD_TYPE = $(shell echo $(BUILD_TYPE) | tr A-Z a-z)
+TFA_ARTIFACTS_DIR := $(TFA_DIR)/build/rpi$(MODEL)/$(TFA_BUILD_TYPE)
+
+# Find all patch files in PATCHES_DIR
+PATCH_FILES := $(wildcard $(PATCHES_DIR)/*.patch)
 
 # Generated files
-ARCHIVE_FILE := RPi4_UEFI_Firmware_$(VERSION).zip
-IMAGE_FILE := RPi4_UEFI_Firmware_$(VERSION).img
+ARCHIVE_FILE := RPi$(MODEL)_UEFI_Firmware_$(VERSION).zip
+IMAGE_FILE := RPi$(MODEL)_UEFI_Firmware_$(VERSION).img
 DMG_FILE := $(addsuffix .dmg, $(basename $(IMAGE_FILE)))
 FIRMWARE_FILE := $(FIRMWARE_DIR)/RPI_EFI.fd
 BRCM_DEB_FILE := $(BRCM_DIR)/$(notdir $(BRCM_FIRMWARE_URL))
@@ -105,12 +116,39 @@ check-deps:
 	@command -v iasl >/dev/null 2>&1 || { echo "Error: iasl not found. Install with: brew install acpica"; exit 1; }
 	@command -v python3 >/dev/null 2>&1 || { echo "Error: python3 not found. Install Python 3.x"; exit 1; }
 
-# Apply template overlays to platforms directory
-.PHONY: apply-templates
-apply-templates:
-	@echo "Applying template overlays to platforms directory..."
-	@echo "Copying $(TEMPLATES_DIR)/* to platforms/"
-	@echo "cp -r $(TEMPLATES_DIR)/* platforms/"
+# Apply all patch files from PATCHES_DIR
+.PHONY: apply-patches
+apply-patches: | clean-platforms
+	@cd platforms && patch -s -f -p1 < ../patches/000-rpi5-edk2-platforms.patch || true
+
+# Patch libfdt includes for BoardInfoLib and FdtPlatformLib
+.PHONY: patch-libfdt-includes
+patch-libfdt-includes: | apply-patches
+	@echo "Adding libfdt include paths to library .inf files..."
+	@for lib in platforms/Platform/RaspberryPi/Library/BoardInfoLib/BoardInfoLib.inf \
+	            platforms/Platform/RaspberryPi/Library/FdtPlatformLib/FdtPlatformLib.inf; do \
+		if [ -f "$$lib" ]; then \
+			if ! grep -q "GCC:.*CC_FLAGS.*BaseFdtLib" "$$lib"; then \
+				echo "" >> "$$lib"; \
+				echo "[BuildOptions]" >> "$$lib"; \
+				echo "  GCC:*_*_*_CC_FLAGS = -I\$$(WORKSPACE)/edk2/MdePkg/Library/BaseFdtLib -I\$$(WORKSPACE)/edk2/MdePkg/Library/BaseFdtLib/libfdt/libfdt" >> "$$lib"; \
+				echo "Patched $$lib"; \
+			fi; \
+		fi; \
+	done
+
+# Build ARM Trusted Firmware
+.PHONY: build-tfa
+build-tfa:
+	@echo "Building ARM Trusted Firmware for RPi$(MODEL)..."
+	$(MAKE) -C $(TFA_DIR) \
+		PLAT=rpi$(MODEL) \
+		PRELOADED_BL33_BASE=0x20000 \
+		RPI3_PRELOADED_DTB_BASE=0x1F0000 \
+		SUPPORT_VFP=1 \
+		SMC_PCI_SUPPORT=1 \
+		DEBUG=$(if $(filter RELEASE,$(BUILD_TYPE)),0,1)
+	@echo "ARM Trusted Firmware build complete"
 
 # Set up EDK2 BaseTools
 .PHONY: setup-edk2
@@ -163,22 +201,22 @@ $(KEYS_DIR)/arm64_dbx.bin: | $(KEYS_DIR)
 setup-keys: $(KEY_FILES)
 
 # Build UEFI firmware
-$(FIRMWARE_FILE): | setup-edk2 apply-templates $(KEY_FILES)
-	@echo "Building UEFI firmware..."
+$(FIRMWARE_FILE): | setup-edk2 apply-patches patch-libfdt-includes $(KEY_FILES) build-tfa
+	@echo "Building UEFI firmware for RPi$(MODEL)..."
 	export WORKSPACE=$(WORKSPACE) && \
 	export PACKAGES_PATH="$(PACKAGES_PATH)" && \
 	export GCC5_AARCH64_PREFIX="$(GCC5_AARCH64_PREFIX)" && \
 	. edk2/edksetup.sh && \
 	build -a $(ARCH) -t $(COMPILER) -b $(BUILD_TYPE) \
-		-p platforms/Platform/RaspberryPi/RPi4/RPi4.dsc \
-    --pcd gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB=1 \
-    --pcd gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB=0 \
-    --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdBootDiscoveryPolicy=2 \
-    --pcd gRaspberryPiTokenSpaceGuid.PcdSystemTableMode=1 \
-    --pcd gRaspberryPiTokenSpaceGuid.PcdXhciPci=0 \
-    --pcd gRaspberryPiTokenSpaceGuid.PcdXhciReload=1 \
-		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor=L"$(PROJECT_URL)" \
-		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString=L"UEFI Firmware $(VERSION)" \
+		-p platforms/Platform/RaspberryPi/RPi$(MODEL)/RPi$(MODEL).dsc \
+		-D TFA_BUILD_ARTIFACTS=$(WORKSPACE)/$(TFA_ARTIFACTS_DIR) \
+		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString=L"$(VERSION)" \
+		--pcd gRaspberryPiTokenSpaceGuid.PcdRamMoreThan3GB=1 \
+		--pcd gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB=0 \
+		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdBootDiscoveryPolicy=2 \
+		--pcd gRaspberryPiTokenSpaceGuid.PcdSystemTableMode=1 \
+		--pcd gRaspberryPiTokenSpaceGuid.PcdXhciPci=0 \
+		--pcd gRaspberryPiTokenSpaceGuid.PcdXhciReload=1 \
 		$(BUILD_FLAGS) $(DEFAULT_KEYS) $(TLS_DISABLE_FLAGS)
 
 $(BRCM_DIR):
@@ -298,7 +336,7 @@ clean-platforms:
 .PHONY: clean
 clean: clean-platforms
 	@echo "Cleaning build artifacts..."
-	for mod in $$(cat .gitmodules | grep path | cut -d'=' -f 2 | tr -d ' '); do \
+	for mod in $(shell cat .gitmodules | grep path | cut -d'=' -f 2 | tr -d ' '); do \
     git submodule update --init --force "$${mod}" && \
     cd "$${mod}" && \
     git clean -fd && \
@@ -307,6 +345,10 @@ clean: clean-platforms
 	done
 	rm -rf Build/
 	rm -rf firmware/build
+	@if [ -d "$(TFA_DIR)" ]; then \
+		echo "Cleaning ARM Trusted Firmware artifacts..."; \
+		rm -rf $(TFA_DIR)/build; \
+	fi
 
 # Clean everything including keys
 .PHONY: distclean
@@ -321,10 +363,10 @@ help:
 	@echo "  all                - Build everything (default)"
 	@echo "  build              - Build firmware and create archive"
 	@echo "  check-deps         - Check for required dependencies"
-	@echo "  apply-templates    - Apply template overlays to platforms directory"
+	@echo "  apply-patches      - Apply all patches from $(PATCHES_DIR) directory"
+	@echo "  build-tfa          - Build ARM Trusted Firmware for RPi$(MODEL)"
 	@echo "  setup-edk2         - Build EDK2 BaseTools"
 	@echo "  setup-keys         - Download and generate all security keys"
-	@echo "  setup-firmware     - Set up Trusted Firmware for Raspberry Pi"
 	@echo "  download-rpi-files - Download Raspberry Pi support files"
 	@echo "  checksums          - Display SHA-256 checksums"
 	@echo ""
@@ -334,11 +376,9 @@ help:
 	@echo "  distclean          - Clean everything including keys"
 	@echo "  help               - Show this help message"
 	@echo ""
-	@echo "Environment variables:"
+	@echo "Configuration variables:"
+	@echo "  MODEL          - Raspberry Pi model (4 or 5). Default: $(MODEL)"
+	@echo "  BUILD_TYPE     - Build type (RELEASE or DEBUG). Default: $(BUILD_TYPE)"
 	@echo "  VERSION        - Version string (default: git describe or 'dev')"
 	@echo ""
-	@echo "Key files generated in keys/ directory:"
-	@echo "  pk.cer         - Platform Key (self-generated)"
-	@echo "  ms_kek*.cer    - Microsoft Key Exchange Keys"
-	@echo "  ms_db*.cer     - Microsoft Database Keys"
-	@echo "  arm64_dbx.bin  - ARM64 Forbidden Signatures Database"
+	@echo "Example: make build MODEL=5 BUILD_TYPE=DEBUG"
