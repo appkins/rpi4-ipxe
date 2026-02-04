@@ -1,4 +1,4 @@
-# Makefile for RPi4 UEFI firmware build with Redfish integration
+# Makefile for RPi4 UEFI firmware build
 
 BUILD_TYPE ?= RELEASE
 
@@ -109,7 +109,7 @@ check-deps:
 .PHONY: apply-templates
 apply-templates:
 	@echo "Applying template overlays to platforms directory..."
-	@echo "Copying $(TEMPLATES_DIR)/* with Redfish enhancements..."
+	@echo "Copying $(TEMPLATES_DIR)/* to platforms/"
 	@echo "cp -r $(TEMPLATES_DIR)/* platforms/"
 
 # Set up EDK2 BaseTools
@@ -164,7 +164,7 @@ setup-keys: $(KEY_FILES)
 
 # Build UEFI firmware
 $(FIRMWARE_FILE): | setup-edk2 apply-templates $(KEY_FILES)
-	@echo "Building UEFI firmware with Redfish early synchronization support..."
+	@echo "Building UEFI firmware..."
 	export WORKSPACE=$(WORKSPACE) && \
 	export PACKAGES_PATH="$(PACKAGES_PATH)" && \
 	export GCC5_AARCH64_PREFIX="$(GCC5_AARCH64_PREFIX)" && \
@@ -175,6 +175,8 @@ $(FIRMWARE_FILE): | setup-edk2 apply-templates $(KEY_FILES)
     --pcd gRaspberryPiTokenSpaceGuid.PcdRamLimitTo3GB=0 \
     --pcd gEfiMdeModulePkgTokenSpaceGuid.PcdBootDiscoveryPolicy=2 \
     --pcd gRaspberryPiTokenSpaceGuid.PcdSystemTableMode=1 \
+    --pcd gRaspberryPiTokenSpaceGuid.PcdXhciPci=0 \
+    --pcd gRaspberryPiTokenSpaceGuid.PcdXhciReload=1 \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVendor=L"$(PROJECT_URL)" \
 		--pcd gEfiMdeModulePkgTokenSpaceGuid.PcdFirmwareVersionString=L"UEFI Firmware $(VERSION)" \
 		$(BUILD_FLAGS) $(DEFAULT_KEYS) $(TLS_DISABLE_FLAGS)
