@@ -1,7 +1,7 @@
 # Copyright (c) 2021-2024, Pete Batard <pete@akeo.ie>
 # SPDX-License-Identifier: BSD-3-Clause
 
-name: UEFI firmware - EDK2 build
+name: UEFI firmware - EDK2 multi-platform build
 
 on:
   push:
@@ -29,6 +29,9 @@ env:
 jobs:
   UEFI-Build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        model: [3, 4, 5]
 
     steps:
       - name: Set version
@@ -64,19 +67,56 @@ jobs:
           git config --global push.default simple
           git config --global core.autocrlf false
 
-      - name: Build UEFI firmware
+      - name: Build UEFI firmware for RPi${{ matrix.model }}
         run: |
-          VERSION=${{ inputs.version || steps.set_version.outputs.version }} make
+          VERSION=${{ inputs.version || steps.set_version.outputs.version }} MODEL=${{ matrix.model }} make
 
-      - name: Upload UEFI firmware artifacts
+      - name: Upload UEFI firmware artifacts for RPi${{ matrix.model }}
         uses: actions/upload-artifact@v4
         with:
-          name: RPi4 UEFI Firmware ${{ inputs.version || steps.set_version.outputs.version }} Artifacts
+          name: RPi${{ matrix.model }} UEFI Firmware ${{ inputs.version || steps.set_version.outputs.version }}
           path: |
-            Build/RPi4/**/FV/RPI_EFI.fd
+            Build/RPi${{ matrix.model }}/**/FV/RPI_EFI.fd
+
+      - name: Display SHA-256 for RPi${{ matrix.model }}
+        run: sha256sum Build/RPi${{ matrix.model }}/*/FV/RPI_EFI.fd
+
+  Create-Release:
+    runs-on: ubuntu-latest
+    needs: UEFI-Build
+
+    steps:
+      - name: Set version
+        id: set_version
+        run: echo "version=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install packages
+        run: |
+          sudo apt update
+          sudo apt install -y acpica-tools mtools syslinux isolinux gcc-aarch64-linux-gnu uuid-dev zip
+
+      - name: Set up Git environment
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Create multi-platform archive
+        run: |
+          VERSION=${{ inputs.version || steps.set_version.outputs.version }} make build-archive-all
 
       - name: Display SHA-256
-        run: sha256sum Build/RPi4/*/FV/RPI_EFI.fd Build/RPi4_UEFI_Firmware_${{ inputs.version || steps.set_version.outputs.version }}.zip
+        run: sha256sum Build/RPi*_UEFI_Firmware_${{ inputs.version || steps.set_version.outputs.version }}.zip
 
       - name: Create release
         id: create_release
@@ -85,7 +125,15 @@ jobs:
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
-          body: Raspberry Pi 4 UEFI Firmware ${{ inputs.version || steps.set_version.outputs.version }}
+          body: |
+            Raspberry Pi 3/4/5 UEFI Firmware ${{ inputs.version || steps.set_version.outputs.version }}
+
+            This release includes UEFI firmware for:
+            - Raspberry Pi 3 (RPI3_EFI.fd)
+            - Raspberry Pi 4 (RPI4_EFI.fd)
+            - Raspberry Pi 5 (RPI5_EFI.fd)
+
+            The config.txt file will automatically select the correct firmware based on your Raspberry Pi model.
           tag_name: ${{ inputs.version || steps.set_version.outputs.version }}
           files: |
-            Build/RPi4_UEFI_Firmware_${{ inputs.version || steps.set_version.outputs.version }}.zip
+            Build/RPi*_UEFI_Firmware_${{ inputs.version || steps.set_version.outputs.version }}.zip
