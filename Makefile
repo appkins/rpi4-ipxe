@@ -5,7 +5,7 @@ MODEL ?= 4
 BUILD_TYPE ?= RELEASE
 
 # Multi-platform build support
-ALL_MODELS := 3 4 5
+ALL_MODELS := 4 5
 
 # Configuration variables
 PROJECT_URL := https://github.com/pftf/RPi4
@@ -64,7 +64,9 @@ RPI_FILES := fixup4.dat \
              start4.elf \
              bcm2711-rpi-4-b.dtb \
              bcm2711-rpi-cm4.dtb \
-             bcm2711-rpi-400.dtb
+             bcm2711-rpi-400.dtb \
+			 bcm2712-rpi-5-b.dtb \
+			 bcm2712-d-rpi-5-b.dtb
 
 # Overlay files
 OVERLAY_FILES := miniuart-bt.dtbo \
@@ -98,25 +100,23 @@ DEFAULT_KEYS := -D DEFAULT_KEYS=TRUE \
                 -D DB_DEFAULT_FILE4=$(WORKSPACE)/$(KEYS_DIR)/ms_db4.cer \
                 -D DBX_DEFAULT_FILE1=$(WORKSPACE)/$(KEYS_DIR)/arm64_dbx.bin
 
-# Default target - build current MODEL
+# Default target - build all platforms (required for complete image)
 .PHONY: all
-all: $(FIRMWARE_FILE) $(BUILD_DIR)/$(ARCHIVE_FILE)
+all: all-platforms
 
 # Build all platforms
 .PHONY: all-platforms
 all-platforms:
-	@echo "Building firmware for all Raspberry Pi models..."
-	$(MAKE) MODEL=3 $(FIRMWARE_FILE)
-	$(MAKE) MODEL=4 $(FIRMWARE_FILE)
-	$(MAKE) MODEL=5 $(FIRMWARE_FILE)
+	@echo "Building firmware for all Raspberry Pi models..." # $(MAKE) MODEL=3 build-firmware
+	$(MAKE) MODEL=4 build-firmware
+	$(MAKE) MODEL=5 build-firmware
 	$(MAKE) build-archive-all
 
 # Build archive with all platform binaries
 .PHONY: build-archive-all
 build-archive-all: download-rpi-files setup-brcm $(ARCHIVE_DIR)/config.txt $(ARCHIVE_DIR)/Readme.md
 	@echo "Creating multi-platform archive..."
-	@mkdir -p $(ARCHIVE_DIR)
-	cp Build/RPi3/$(BUILD_TYPE)_$(COMPILER)/FV/RPI_EFI.fd $(ARCHIVE_DIR)/RPI3_EFI.fd 2>/dev/null || true
+	@mkdir -p $(ARCHIVE_DIR) # cp Build/RPi3/$(BUILD_TYPE)_$(COMPILER)/FV/RPI_EFI.fd $(ARCHIVE_DIR)/RPI3_EFI.fd 2>/dev/null || true
 	cp Build/RPi4/$(BUILD_TYPE)_$(COMPILER)/FV/RPI_EFI.fd $(ARCHIVE_DIR)/RPI4_EFI.fd 2>/dev/null || true
 	cp Build/RPi5/$(BUILD_TYPE)_$(COMPILER)/FV/RPI_EFI.fd $(ARCHIVE_DIR)/RPI5_EFI.fd 2>/dev/null || true
 	cd $(BUILD_DIR) && zip -r $(ARCHIVE_FILE) $(notdir $(ARCHIVE_DIR))/*
@@ -242,6 +242,9 @@ $(FIRMWARE_FILE): | setup-edk2 apply-patches patch-libfdt-includes $(KEY_FILES) 
 		--pcd gRaspberryPiTokenSpaceGuid.PcdXhciReload=1 \
 		$(BUILD_FLAGS) $(DEFAULT_KEYS) $(TLS_DISABLE_FLAGS)
 
+.PHONY: build-firmware
+build-firmware: $(FIRMWARE_FILE)
+
 $(BRCM_DIR):
 	mkdir -p $@
 
@@ -355,7 +358,7 @@ checksums: $(FIRMWARE_FILE) $(BUILD_DIR)/$(ARCHIVE_FILE)
 
 # Build everything
 .PHONY: build
-build: check-deps $(ARCHIVE_DIR)/RPI_EFI.fd download-rpi-files setup-brcm $(BUILD_DIR)/$(ARCHIVE_FILE) checksums
+build: all-platforms checksums
 
 # Clean platforms submodule to remote state
 .PHONY: clean-platforms
