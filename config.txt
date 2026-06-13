@@ -23,8 +23,13 @@ dtoverlay=upstream-pi4
 
 # Raspberry Pi 5 specific configuration
 [pi5]
+device_tree_address=0x3e0000
+device_tree_end=0x400000
 armstub=RPI5_EFI.fd
 dtoverlay=disable-bt
+usb_max_current_enable=1
+force_turbo=1
+framebuffer_depth=16
 
 # Default fallback (Pi4)
 [all]
